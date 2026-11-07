@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>H2 · Ghibli Wide · continuous</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#f1ede4;--ink:#161513;--ink2:#3b3833;--moon:#f0c6c2}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:var(--paper);color:var(--ink);font-family:Inter,system-ui,sans-serif;overflow:hidden;position:relative}
+body::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.3;mix-blend-mode:multiply;z-index:6;
+ background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.3 0 0 0 0 0.28 0 0 0 0 0.25 0 0 0 .18 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+nav{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:34px 56px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;z-index:5}
+nav .brand{font-family:"Cormorant Garamond",serif;font-size:20px;letter-spacing:.02em;text-transform:none;font-style:italic}
+nav ul{display:flex;gap:40px;list-style:none}
+nav a{color:var(--ink);text-decoration:none}
+.hero{position:absolute;left:0;right:0;top:120px;text-align:center;z-index:5;padding:0 24px}
+.hero h1{font-family:"Cormorant Garamond",serif;font-weight:300;font-size:78px;line-height:.98;letter-spacing:-.01em;max-width:820px;margin:0 auto}
+.hero h1 em{font-style:italic}
+.hero p{margin:22px auto 0;font-size:15px;line-height:1.7;color:var(--ink2);max-width:440px}
+.cta{display:inline-flex;align-items:center;gap:14px;margin-top:30px;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink);text-decoration:none;border-bottom:1px solid var(--ink);padding-bottom:8px}
+svg.bg,canvas.scene{position:absolute;inset:0;width:100%;height:100%}
+canvas.scene{z-index:2}
+.cloud{animation:drift 70s linear infinite}
+@keyframes drift{to{transform:translateX(-140px)}}
+.debug{position:absolute;right:56px;bottom:30px;z-index:7;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#8a857a}
+</style>
+</head>
+<body>
+<nav><div class="brand">The Unfinished World</div><ul><li><a href="#">Thesis</a></li><li><a href="#">How we work</a></li><li><a href="#">People</a></li><li><a href="#">Join</a></li></ul></nav>
+<div class="hero">
+  <h1>A world still <em>being built</em>.</h1>
+  <p>A collective of interdisciplinary thinkers and builders, working on the questions between fields and outside the market.</p>
+  <a class="cta" href="#">Join the collective</a>
+</div>
+
+<svg class="bg" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9d4c8"/><stop offset=".6" stop-color="#f1ede4"/></linearGradient></defs>
+  <rect width="1440" height="900" fill="url(#sky)"/>
+  <circle cx="1180" cy="210" r="66" fill="#f0c6c2"/>
+  <g class="cloud" fill="#f7f4ee">
+    <path d="M160 300 h300 a34 34 0 0 0 0 -68 h-90 a48 48 0 0 0 -92 -16 a42 42 0 0 0 -84 12 a36 36 0 0 0 -34 72Z"/>
+    <path d="M900 360 h380 a30 30 0 0 0 0 -60 h-80 a44 44 0 0 0 -86 -14 a40 40 0 0 0 -80 10 a32 32 0 0 0 -134 64Z"/>
+  </g>
+</svg>
+<canvas class="scene" id="c"></canvas>
+<div class="debug" id="dbg"></div>
+
+<script src="walker2.js"></script>
+<script>
+const INK = '#161513', MIST = '#e9e4da';
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+let dpr = Math.min(devicePixelRatio || 1, 2), W = 0, H = 0, S = 1, OX = 0, OY = 0;
+function resize() { W = cv.clientWidth; H = cv.clientHeight; cv.width = W * dpr; cv.height = H * dpr; S = Math.max(W / 1440, H / 900); OX = (W - 1440 * S) / 2; OY = (H - 900 * S) / 2; }
+addEventListener('resize', resize); resize();
+
+// --- helpers ---------------------------------------------------------------
+function rng(seed) { let a = seed >>> 0; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const bez = (a, b, c, t) => (1 - t) * (1 - t) * a + 2 * (1 - t) * t * b + t * t * c;
+const ease = t => t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+// ink polygon with a rough, slightly torn edge (seeded, stable per frame)
+function inkPoly(pts, seed, amp, fill) {
+  const r = rng(seed); ctx.beginPath();
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length];
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.floor(len / 10));
+    const nx = -(b[1] - a[1]) / len, ny = (b[0] - a[0]) / len;
+    for (let k = 0; k < n; k++) { const t = k / n, j = (r() - .5) * amp; const px = a[0] + (b[0] - a[0]) * t + nx * j, py = a[1] + (b[1] - a[1]) * t + ny * j; k === 0 && i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py); }
+  }
+  ctx.closePath(); ctx.fillStyle = fill || INK; ctx.fill();
+}
+
+// --- segments: each in a canonical frame (start near-left, end far-right); mirror flips the whole frame ------
+// near: polygon of the starting land, with top edge from `walk` (where the walker enters) to P0.
+const SEGS = [
+  { seed: 11, mirror: false, depthFar: 6, horizon: 470,
+    P0: {x: 548, y: 644}, P1: {x: 820, y: 560}, P2: {x: 1125, y: 468}, walk: {x: 400, y: 648},
+    near: [[0,700],[160,665],[300,672],[400,648],[548,644],[600,662],[680,760],[760,900],[0,900]],
+    far:  [[1120,470],[1180,446],[1300,452],[1440,420],[1440,900],[1100,900],[1130,600]],
+    hills: [[0,520,200,440,400,470,600,420,900,400,1100,450,1300,430,1440,470],[400,560,560,500,700,520,860,480,1140,470,1440,520]] },
+  { seed: 23, mirror: true, depthFar: 5, horizon: 500,
+    P0: {x: 500, y: 630}, P1: {x: 740, y: 600}, P2: {x: 1070, y: 500}, walk: {x: 330, y: 610},
+    near: [[0,560],[120,580],[240,600],[330,610],[420,628],[500,630],[560,650],[640,760],[700,900],[0,900]],
+    far:  [[1060,502],[1120,470],[1200,486],[1260,440],[1440,460],[1440,900],[1040,900],[1080,640]],
+    hills: [[0,560,260,480,520,500,760,440,1000,470,1200,430,1440,480],[300,600,520,540,760,560,1000,520,1240,540,1440,560]] },
+  { seed: 37, mirror: false, depthFar: 7, horizon: 440,
+    P0: {x: 580, y: 668}, P1: {x: 900, y: 620}, P2: {x: 1150, y: 468}, walk: {x: 440, y: 690},
+    near: [[0,760],[150,720],[300,710],[440,690],[580,668],[640,700],[700,800],[740,900],[0,900]],
+    far:  [[1140,470],[1180,462],[1240,430],[1340,446],[1440,400],[1440,900],[1120,900],[1150,620]],
+    hills: [[0,500,220,420,460,460,700,400,940,430,1180,390,1440,430],[500,540,700,480,900,510,1100,470,1300,500,1440,490]] },
+];
+const DECK_W = 150, WALKER_H = DECK_W * .78;
+
+function prepare(seg) {
+  const depthAt = t => 1 + t * (seg.depthFar - 1);
+  const fadeAt = d => 1 - .5 * (d - 1) / (seg.depthFar - 1);
+  const r = rng(seg.seed * 7 + 1);
+  // world progress u in [0,1] <-> path parameter t: du ~ depth * dt, so equal du = equal world distance
+  const TOTAL = (() => { let a = 0; for (let t = 0; t < 1; t += .001) a += depthAt(t) * .001; return a; })();
+  const worldOf = t => { let a = 0; for (let s = 0; s < t; s += .001) a += depthAt(s) * .001; return a / TOTAL; };
+  const LUT = []; { let a = 0; for (let t = 0; t <= 1.0001; t += .001) { LUT.push([a / TOTAL, t]); a += depthAt(t) * .001; } }
+  const tOfWorld = u => { let lo = 0, hi = LUT.length - 1; while (lo < hi) { const m = (lo + hi) >> 1; if (LUT[m][0] < u) lo = m + 1; else hi = m; } return Math.min(1, LUT[lo][1]); };
+  const slots = []; let ri = 0; const ROW_K = 3.5 / 125;
+  for (let t = 0; t < 1; t += ROW_K / depthAt(t), ri++) {
+    const uWorld = worldOf(t);
+    const x = bez(seg.P0.x, seg.P1.x, seg.P2.x, t), y = bez(seg.P0.y, seg.P1.y, seg.P2.y, t);
+    const tx = 2 * (1 - t) * (seg.P1.x - seg.P0.x) + 2 * t * (seg.P2.x - seg.P1.x), ty = 2 * (1 - t) * (seg.P1.y - seg.P0.y) + 2 * t * (seg.P2.y - seg.P1.y);
+    const ang = Math.atan2(ty, tx), nx = -Math.sin(ang), ny = Math.cos(ang);
+    const d = depthAt(t), fade = fadeAt(d), w = DECK_W / d, n = Math.max(3, Math.round(w / 9)), pw = w / n;
+    const plankL = Math.max(1.4, 11 / d), plankW = Math.max(1, pw * .8);
+    const push = (sl) => { const spawnSky = r() < .4; sl.sx = sl.x + (r() - .5) * 800; sl.sy = spawnSky ? -60 : 940; sl.mx = (sl.sx + sl.x) / 2 + (r() - .5) * 400; sl.my = (sl.sy + sl.y) / 2 + (r() - .5) * 300; sl.t0 = sl.order * BUILD + r() * .3; sl.dur = 1.2 + r() * 1.4; sl.rot0 = (r() - .5) * 2.8; sl.a = .7 + r() * .3; slots.push(sl); };
+    for (let k = 0; k < n; k++) { const off = -w / 2 + pw * (k + .5); push({ x: x + nx * off * .35, y: y + ny * off * .35, w: plankL, h: plankW * .4, rot: ang, order: uWorld + r() * .012, fade }); }
+    if (ri % 6 === 0) { const ph = 70 / d; push({ x, y: y + ph / 2 + 2, w: Math.max(1.2, 5 / d), h: ph, rot: 0, order: uWorld, fade, color: '#3b3833' }); }
+  }
+  const route = t => {
+    if (t < .14) { const u = t / .14; return { x: seg.walk.x + (seg.P0.x - seg.walk.x) * u, y: seg.walk.y + (seg.P0.y - seg.walk.y) * u, depth: 1 }; }
+    const q = tOfWorld((t - .14) / .86); return { x: bez(seg.P0.x, seg.P1.x, seg.P2.x, q), y: bez(seg.P0.y, seg.P1.y, seg.P2.y, q), depth: depthAt(q) };
+  };
+  return Object.assign({}, seg, { slots, route });
+}
+
+// --- timeline ------------------------------------------------------------
+const BUILD = 13, HOLD = 1.2, TRANS = 2.6, SEG_T = BUILD + HOLD + TRANS, LAG = 1.8;
+const segs = SEGS.map(prepare);
+const walkerState = { phase: 0, prev: null, idle: 1, seg: -1 };
+const t_start = performance.now();
+
+function drawScene(seg, lt, camScale, camAnchor) {
+  ctx.save();
+  ctx.setTransform(dpr * S, 0, 0, dpr * S, OX * dpr, OY * dpr);
+  // camera: scale around anchor (design space)
+  ctx.translate(camAnchor.x, camAnchor.y); ctx.scale(camScale, camScale); ctx.translate(-camAnchor.x, -camAnchor.y);
+  if (seg.mirror) { ctx.translate(1440, 0); ctx.scale(-1, 1); }
+  // hills (atmospheric), valley mist
+  seg.hills.forEach((hs, i) => { ctx.beginPath(); ctx.moveTo(hs[0], hs[1]); for (let k = 2; k < hs.length; k += 2) ctx.lineTo(hs[k], hs[k + 1]); ctx.lineTo(1440, 900); ctx.lineTo(0, 900); ctx.closePath(); ctx.fillStyle = INK; ctx.globalAlpha = .12 + i * .08; ctx.fill(); ctx.globalAlpha = 1; });
+  const g = ctx.createLinearGradient(0, seg.horizon + 60, 0, 900); g.addColorStop(0, '#f1ede4'); g.addColorStop(1, '#b9b3a6');
+  ctx.fillStyle = g; ctx.fillRect(0, seg.horizon + 60, 1440, 900 - seg.horizon - 60);
+  // far land
+  inkPoly(seg.far, seg.seed + 3, 10);
+  // pieces
+  const buildT = Math.min(lt, BUILD + HOLD);
+  for (const sl of seg.slots) {
+    if (buildT < sl.t0) continue;
+    const p = Math.min(1, (buildT - sl.t0) / sl.dur);
+    let x = sl.x, y = sl.y, rot = sl.rot, alpha = sl.a * sl.fade, sc = 1;
+    if (p < 1) { const e = easeOut(p); x = bez(sl.sx, sl.mx, sl.x, e); y = bez(sl.sy, sl.my, sl.y, e); rot = sl.rot + sl.rot0 * (1 - e); alpha *= Math.min(1, p * 3); sc = .6 + .4 * e; }
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(sc, sc); ctx.globalAlpha = alpha; ctx.fillStyle = sl.color || INK; ctx.fillRect(-sl.w / 2, -sl.h / 2, sl.w, sl.h); ctx.restore();
+  }
+  // walker
+  let t = Math.max(0, Math.min(1, (lt - LAG) / (BUILD - LAG)));
+  const pos = seg.route(t);
+  const h = WALKER_H / pos.depth;
+  const moving = lt > LAG && lt < BUILD;
+  if (walkerState.seg !== seg.seed) { walkerState.seg = seg.seed; walkerState.prev = null; }
+  if (walkerState.prev && moving) { const ds = Math.hypot(pos.x - walkerState.prev.x, pos.y - walkerState.prev.y); walkerState.phase += (ds / (.84 * h)) * Math.PI * 2; }
+  walkerState.prev = pos;
+  walkerState.idle += ((moving ? 0 : 1) - walkerState.idle) * .08;
+  drawWalker2(ctx, { x: pos.x, y: pos.y, h, phase: walkerState.phase, idle: walkerState.idle, yaw: .62, alpha: 1 - .35 * (pos.depth - 1) / (seg.depthFar - 1) });
+  // near land on top
+  inkPoly(seg.near, seg.seed + 5, 12);
+  ctx.restore();
+  return pos;
+}
+
+function frame(now) {
+  const T = ((now - t_start) / 1000) % (SEG_T * segs.length);
+  const si = Math.floor(T / SEG_T), lt = T - si * SEG_T;
+  const seg = segs[si], next = segs[(si + 1) % segs.length];
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+  let veil = 0, label = 'build';
+  if (lt < BUILD + HOLD) {
+    drawScene(seg, lt, 1, { x: 720, y: 450 });
+    if (lt > BUILD) label = 'hold';
+  } else {
+    const u = (lt - BUILD - HOLD) / TRANS;
+    if (u < .55) {                       // push in toward the far landing, fade to mist
+      const e = ease(u / .55);
+      const anchor = seg.mirror ? { x: 1440 - seg.P2.x, y: seg.P2.y } : seg.P2;
+      drawScene(seg, BUILD + HOLD, 1 + 1.6 * e, anchor); veil = e; label = 'push in';
+    } else {                             // settle onto the next segment's near land
+      const e = ease((u - .55) / .45);
+      const anchor = next.mirror ? { x: 1440 - next.walk.x, y: next.walk.y } : next.walk;
+      drawScene(next, 0, 1.14 - .14 * e, anchor); veil = 1 - e; label = 'reveal';
+    }
+  }
+  if (veil > 0) { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.globalAlpha = veil; ctx.fillStyle = MIST; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; }
+  document.getElementById('dbg').textContent = `bridge ${si + 1}/${segs.length} · ${seg.mirror ? 'right → left' : 'left → right'} · ${label}`;
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

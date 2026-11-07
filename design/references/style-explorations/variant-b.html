@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B · Carved Block</title>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@400;500&family=Zen+Kaku+Gothic+New:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--k0:#1f1f1e;--k1:#4a4a47;--k2:#8a8a85;--k3:#c9c7bf;--k4:#e8e5dc;--sage:#b9c9b2}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:var(--k4);color:var(--k0);font-family:"Zen Kaku Gothic New",system-ui,sans-serif;overflow:hidden;position:relative}
+.grain{position:absolute;inset:0;pointer-events:none;mix-blend-mode:multiply;opacity:.5;
+ background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.004 0.09' numOctaves='3' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0.2 0 0 0 0 0.2 0 0 0 0 0.18 0 0 0 .22 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E")}
+nav{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:30px 48px;font-size:12px;letter-spacing:.2em;text-transform:uppercase;z-index:3;color:var(--k0)}
+nav .brand{font-family:"Zen Old Mincho",serif;font-size:17px;letter-spacing:.3em;text-transform:uppercase}
+nav ul{display:flex;gap:36px;list-style:none}
+nav a{color:inherit;text-decoration:none}
+.col{position:absolute;left:64px;top:110px;height:600px;z-index:3;display:flex;gap:28px}
+.col h1{writing-mode:vertical-rl;font-family:"Zen Old Mincho",serif;font-weight:500;font-size:46px;line-height:1.1;letter-spacing:.02em;color:#e8e5dc;mix-blend-mode:difference;border-left:1px solid #e8e5dc;padding-left:22px;height:100%}
+.col p{writing-mode:vertical-rl;font-size:12px;line-height:2;letter-spacing:.06em;color:#e8e5dc;mix-blend-mode:difference;height:100%}
+.cta{position:absolute;right:56px;bottom:56px;z-index:3;display:flex;align-items:center;gap:18px;text-decoration:none;color:var(--k0);font-size:12px;letter-spacing:.22em;text-transform:uppercase}
+.cta i{width:52px;height:52px;border-radius:50%;background:var(--sage);display:grid;place-items:center;font-style:normal;font-size:18px}
+svg.scene{position:absolute;inset:0;width:100%;height:100%}
+.seg{opacity:0;animation:place 10s cubic-bezier(.65,0,.25,1) infinite}
+@keyframes place{0%{opacity:0;transform:translateY(-240px)}10%{opacity:1;transform:translateY(0)}85%{opacity:1}100%{opacity:0}}
+.cloud{animation:drift 40s linear infinite}
+@keyframes drift{from{transform:translateX(0)}to{transform:translateX(-140px)}}
+</style>
+</head>
+<body>
+<div class="grain"></div>
+<nav><div class="brand">Unfinished World</div><ul><li><a href="#">Thesis</a></li><li><a href="#">How we work</a></li><li><a href="#">People</a></li><li><a href="#">Join</a></li></ul></nav>
+
+<div class="col">
+  <h1>未完の世界<br>What is worth building?</h1>
+  <p>A collective of interdisciplinary thinkers and builders, working on questions that fall between fields and outside the market.</p>
+</div>
+
+<svg class="scene" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a8a85"/><stop offset=".55" stop-color="#c9c7bf"/><stop offset="1" stop-color="#e8e5dc"/></linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c9c7bf"/><stop offset="1" stop-color="#8a8a85"/></linearGradient>
+  </defs>
+  <rect width="1440" height="900" fill="url(#sky)"/>
+  <!-- moon -->
+  <circle cx="980" cy="190" r="70" fill="#e8e5dc"/><circle cx="980" cy="190" r="70" fill="#b9c9b2" opacity=".55"/>
+  <!-- mountain, flat planes -->
+  <path d="M620 560 L 900 250 L 1180 560Z" fill="#8a8a85"/>
+  <path d="M900 250 L 1180 560 L 1000 560 L 960 420 L 920 470Z" fill="#4a4a47" opacity=".9"/>
+  <path d="M900 250 L 870 300 L 905 330 L 935 300 L 955 335 L 980 310 L 940 360 L 900 350 L 870 330Z" fill="#e8e5dc"/>
+  <!-- clouds: stylised flat bands -->
+  <g class="cloud" fill="#e8e5dc">
+    <path d="M300 420 h260 a28 28 0 0 0 0 -56 h-80 a40 40 0 0 0 -78 -14 a36 36 0 0 0 -70 10 a30 30 0 0 0 -32 60Z"/>
+    <path d="M1080 470 h300 a24 24 0 0 0 0 -48 h-60 a36 36 0 0 0 -70 -12 a32 32 0 0 0 -64 8 a26 26 0 0 0 -106 52Z"/>
+  </g>
+  <!-- sea -->
+  <rect x="0" y="620" width="1440" height="280" fill="url(#sea)"/>
+  <!-- right rock + pagoda -->
+  <path d="M1040 620 L 1060 540 L 1120 500 L 1200 520 L 1260 480 L 1440 500 L1440 900 L1040 900Z" fill="#1f1f1e"/>
+  <g fill="#1f1f1e"><path d="M1270 480 l-30 -22 h60z"/><rect x="1250" y="456" width="40" height="8"/><path d="M1270 456 l-26 -20 h52z"/><rect x="1254" y="434" width="32" height="6"/><path d="M1270 434 l-20 -16 h40z"/><rect x="1264" y="398" width="12" height="22"/></g>
+  <g fill="#b9c9b2"><rect x="1258" y="462" width="6" height="8"/><rect x="1276" y="462" width="6" height="8"/></g>
+  <!-- left rock, stepped -->
+  <path d="M0 560 L 120 540 L 200 560 L 320 520 L 420 540 L 440 560 L 440 900 L 0 900Z" fill="#1f1f1e"/>
+  <path d="M0 600 L 440 600 L 440 900 L 0 900Z" fill="#1f1f1e"/>
+  <!-- bridge: carved segments, flat -->
+  <g fill="#1f1f1e">
+    <rect x="440" y="552" width="90" height="14"/>
+    <rect x="530" y="548" width="90" height="14"/>
+    <rect x="620" y="546" width="90" height="14"/>
+    <rect class="seg" style="animation-delay:0s" x="710" y="545" width="90" height="14"/>
+    <rect class="seg" style="animation-delay:1.6s" x="800" y="545" width="90" height="14"/>
+    <rect class="seg" style="animation-delay:3.2s" x="890" y="546" width="90" height="14"/>
+    <rect class="seg" style="animation-delay:4.8s" x="980" y="548" width="60" height="14"/>
+  </g>
+  <g fill="#4a4a47">
+    <rect x="490" y="566" width="10" height="120"/><rect x="660" y="560" width="10" height="130"/><rect x="830" y="559" width="10" height="130" opacity=".4"/><rect x="990" y="562" width="10" height="120" opacity=".4"/>
+  </g>
+  <!-- ghost of unbuilt -->
+  <g fill="none" stroke="#1f1f1e" stroke-dasharray="6 8" stroke-width="2" opacity=".5"><rect x="710" y="545" width="330" height="14"/></g>
+  <!-- boat -->
+  <path d="M700 760 l60 0 l-10 14 l-40 0z" fill="#1f1f1e"/><path d="M730 700 l0 60" stroke="#1f1f1e" stroke-width="2"/><path d="M730 700 l-26 50 h26z" fill="#e8e5dc"/>
+</svg>
+
+<a class="cta" href="#">Join the collective <i>→</i></a>
+</body>
+</html>

@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>I · Monument Isometric</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#f3eee4;--ink:#161513;--ink2:#3b3833;--g1:#8f8a80;--g2:#cfc9bd;--moon:#f0c6c2}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:var(--paper);color:var(--ink);font-family:Inter,system-ui,sans-serif;overflow:hidden;position:relative}
+body::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.3;mix-blend-mode:multiply;z-index:6;
+ background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.3 0 0 0 0 0.28 0 0 0 0 0.25 0 0 0 .18 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+nav{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:34px 56px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;z-index:5}
+nav .brand{font-family:"Cormorant Garamond",serif;font-size:20px;letter-spacing:.02em;text-transform:none;font-style:italic}
+nav ul{display:flex;gap:40px;list-style:none}
+nav a{color:var(--ink);text-decoration:none}
+.hero{position:absolute;left:56px;top:150px;max-width:480px;z-index:5}
+.hero h1{font-family:"Cormorant Garamond",serif;font-weight:300;font-size:70px;line-height:.98;letter-spacing:-.01em}
+.hero h1 em{font-style:italic}
+.hero p{margin-top:24px;font-size:15px;line-height:1.7;color:var(--ink2);max-width:380px}
+.cta{display:inline-flex;align-items:center;gap:14px;margin-top:36px;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink);text-decoration:none;border-bottom:1px solid var(--ink);padding-bottom:8px}
+.cta span{display:inline-block;width:40px;height:1px;background:var(--ink)}
+svg.scene,canvas.scene{position:absolute;inset:0;width:100%;height:100%}
+canvas.scene{z-index:2}
+.walker{position:absolute;z-index:4;left:0;top:0;width:60px;height:120px;transform-origin:50% 100%;pointer-events:none}
+.legend{position:absolute;bottom:34px;left:56px;z-index:5;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink2)}
+</style>
+</head>
+<body>
+<nav><div class="brand">The Unfinished World</div><ul><li><a href="#">Thesis</a></li><li><a href="#">How we work</a></li><li><a href="#">People</a></li><li><a href="#">Join</a></li></ul></nav>
+
+<div class="hero">
+  <h1>Between <em>fields</em>, something is being built.</h1>
+  <p>A collective of interdisciplinary thinkers and builders. Two disciplines stand finished. The path between them is ours to make.</p>
+  <a class="cta" href="#"><span></span>Join the collective</a>
+</div>
+
+<svg class="scene" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <circle cx="1180" cy="150" r="56" fill="#f0c6c2"/>
+  <!-- ground haze -->
+  <ellipse cx="900" cy="760" rx="620" ry="120" fill="#161513" opacity=".05"/>
+  <!-- near platform A (bottom-left of the bridge), isometric block -->
+  <g>
+    <path d="M520 700 L 700 610 L 880 700 L 700 790Z" fill="#cfc9bd"/>
+    <path d="M520 700 L 700 790 L 700 900 L 520 810Z" fill="#8f8a80"/>
+    <path d="M880 700 L 700 790 L 700 900 L 880 810Z" fill="#161513"/>
+    <!-- a small built "house of discipline A": pagoda-ish stack -->
+    <path d="M600 660 L 640 640 L 680 660 L 640 680Z" fill="#161513"/>
+    <path d="M600 660 L 640 680 L 640 700 L 600 680Z" fill="#8f8a80"/><path d="M680 660 L 640 680 L 640 700 L 680 680Z" fill="#161513"/>
+    <path d="M612 646 L 640 632 L 668 646 L 640 660Z" fill="#f3eee4"/>
+  </g>
+  <!-- far platform B (top-right), isometric block -->
+  <g>
+    <path d="M1000 460 L 1180 370 L 1360 460 L 1180 550Z" fill="#cfc9bd"/>
+    <path d="M1000 460 L 1180 550 L 1180 660 L 1000 570Z" fill="#8f8a80"/>
+    <path d="M1360 460 L 1180 550 L 1180 660 L 1360 570Z" fill="#161513"/>
+    <path d="M1150 430 L 1190 410 L 1230 430 L 1190 450Z" fill="#161513"/>
+    <path d="M1150 430 L 1190 450 L 1190 480 L 1150 460Z" fill="#8f8a80"/><path d="M1230 430 L 1190 450 L 1190 480 L 1230 460Z" fill="#161513"/>
+    <path d="M1162 416 L 1190 402 L 1218 416 L 1190 430Z" fill="#f3eee4"/>
+  </g>
+  <!-- ghost outline of the unbuilt span -->
+  <path d="M790 655 L 1090 505 L 1130 525 L 830 675Z" fill="none" stroke="#161513" stroke-dasharray="4 8" stroke-width="1.5" opacity=".45"/>
+</svg>
+
+<canvas class="scene" id="c"></canvas>
+
+<svg class="walker" id="walker" viewBox="0 0 60 120" aria-hidden="true">
+  <g fill="#161513">
+    <circle cx="30" cy="16" r="10"/>
+    <path d="M18 30 h24 l6 46 h-10 l-2 -22 h-12 l-2 22 h-10z"/>
+    <path id="legL" d="M22 74 l-4 40 h9 l3 -40z"/>
+    <path id="legR" d="M34 74 l3 40 h9 l-4 -40z"/>
+    <path d="M14 36 l-8 34 h5 l9 -30z"/><path d="M46 36 l8 34 h-5 l-9 -30z"/>
+  </g>
+</svg>
+
+<div class="legend">A · built &nbsp;&nbsp; B · built &nbsp;&nbsp; C · pieces arriving</div>
+
+<script src="assembly.js"></script>
+<script>
+// Isometric cubes along the diagonal from platform A's edge (790,655)->(1090,505), 3 cubes wide.
+const UX = {x: .866, y: -.5};   // "forward" along the span (up-right on screen)
+const UY = {x: .866, y: .5};    // across the span (down-right)
+const CUBE = 14, LEN = 25, WIDE = 3;
+const O = {x: 800, y: 650};
+const slots = [];
+for (let i = 0; i < LEN; i++) {
+  for (let j = 0; j < WIDE; j++) {
+    const x = O.x + i * CUBE * UX.x + j * CUBE * UY.x;
+    const y = O.y + i * CUBE * UX.y + j * CUBE * UY.y;
+    slots.push({ x, y, w: CUBE, h: CUBE, order: i / LEN + j * .01 + Math.random() * .012, rot: 0, kind: 'cube', dark: i % 5 === 0 });
+    // occasional second layer: a railing cube
+    if (i % 4 === 0 && (j === 0 || j === WIDE - 1)) {
+      slots.push({ x, y: y - CUBE, w: CUBE, h: CUBE, order: i / LEN + .03, rot: 0, kind: 'cube', dark: true });
+    }
+  }
+}
+function drawCube(ctx, sl, state) {
+  const c = sl.w, hx = c * .866, hy = c * .5;
+  ctx.lineJoin = 'round';
+  // top
+  ctx.fillStyle = sl.dark ? '#8f8a80' : '#f3eee4';
+  ctx.beginPath(); ctx.moveTo(0, -hy); ctx.lineTo(hx, 0); ctx.lineTo(0, hy); ctx.lineTo(-hx, 0); ctx.closePath(); ctx.fill();
+  // left
+  ctx.fillStyle = sl.dark ? '#3b3833' : '#8f8a80';
+  ctx.beginPath(); ctx.moveTo(-hx, 0); ctx.lineTo(0, hy); ctx.lineTo(0, hy + c); ctx.lineTo(-hx, c); ctx.closePath(); ctx.fill();
+  // right
+  ctx.fillStyle = '#161513';
+  ctx.beginPath(); ctx.moveTo(hx, 0); ctx.lineTo(0, hy); ctx.lineTo(0, hy + c); ctx.lineTo(hx, c); ctx.closePath(); ctx.fill();
+  if (state === 'flying') { ctx.strokeStyle = '#161513'; ctx.lineWidth = .6; ctx.stroke(); }
+}
+Assembly(document.getElementById('c'), {
+  slots, cycle: 20, build: 13, hold: 3.5, durMin: 1.0, durMax: 2.0, jitter: .2,
+  draw: drawCube,
+  spawn: sl => ({ x: sl.x + (Math.random() - .5) * 600, y: -80 - Math.random() * 300 }),
+  onFrame: (p, phase) => {
+    const t = Math.max(0, Math.min(1, p * .9 - .12));
+    const i = t * LEN;
+    const x = O.x + i * CUBE * UX.x + 1 * CUBE * UY.x, y = O.y + i * CUBE * UX.y + 1 * CUBE * UY.y - 4;
+    const el = document.getElementById('walker');
+    const W = innerWidth, H = innerHeight, s = Math.max(W / 1440, H / 900), ox = (W - 1440 * s) / 2, oy = (H - 900 * s) / 2;
+    const scale = .55;
+    el.style.transform = `translate(${ox + (x - 30) * s}px, ${oy + (y - 120 + Math.sin(performance.now()/180)*1.5) * s}px) scale(${scale * s})`;
+    el.style.opacity = phase === 'dissolve' ? 0 : 1;
+    const tt = performance.now() / 160;
+    document.getElementById('legL').setAttribute('transform', `rotate(${Math.sin(tt) * 14} 24 74)`);
+    document.getElementById('legR').setAttribute('transform', `rotate(${-Math.sin(tt) * 14} 36 74)`);
+  }
+});
+</script>
+</body>
+</html>

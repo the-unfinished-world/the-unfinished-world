@@ -1,0 +1,11 @@
+<!doctype html><html><head><meta charset="utf-8"><title>figure test</title>
+<style>body{margin:0;background:#f1ede4}canvas{display:block}</style></head><body>
+<canvas id="c" width="1440" height="560"></canvas>
+<script src="walker7.js"></script><script src="walker8.js"></script><script src="brushfigure.js"></script>
+<script>
+const ctx=document.getElementById('c').getContext('2d');
+ctx.fillStyle='#f1ede4';ctx.fillRect(0,0,1440,560);
+const N=8; for(let i=0;i<N;i++){ drawWalkerBrush(ctx,{x:110+i*165,y:470,h:380,phase:i/N*Math.PI*2,idle:0,yaw:1.25,variant:i%2?'female':'male'}); }
+drawWalkerBrush(ctx,{x:1390,y:470,h:380,phase:0,idle:1,yaw:1.25,variant:'female'});
+ctx.fillStyle='#8a857a';ctx.font='13px system-ui';for(let i=0;i<N;i++)ctx.fillText(Math.round(i/N*100)+'%',95+i*165,520);ctx.fillText('standing',1360,520);
+</script></body></html>

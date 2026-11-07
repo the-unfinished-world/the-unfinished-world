@@ -1,0 +1,25 @@
+<!doctype html><html><head><meta charset="utf-8"><title>type test</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;1,400&family=EB+Garamond:ital,wght@0,400;1,400&family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400&family=Crimson+Pro:ital,wght@0,400;1,400&family=Spectral:ital,wght@0,400;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;1,8..60,400&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#f1ede4;color:#1d1b18;display:grid;grid-template-columns:repeat(3,1fr);gap:0}
+.col{padding:40px 36px;border-right:1px solid rgba(29,27,24,.12);min-height:100vh}
+.col h6{font:inherit;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#8a857a;margin:0 0 26px;font-family:Inter,system-ui,sans-serif}
+.col .t{font-style:italic;margin-bottom:34px}
+.col p{margin:0 0 .9em;max-width:34em}
+.f1{font-family:"Cormorant Garamond",serif;font-size:21px;line-height:1.55}
+.f2{font-family:"EB Garamond",serif;font-size:19px;line-height:1.55}
+.f3{font-family:"Newsreader",serif;font-size:19px;line-height:1.5}
+.f4{font-family:"Crimson Pro",serif;font-size:20px;line-height:1.5}
+.f5{font-family:"Spectral",serif;font-size:17px;line-height:1.6}
+.f6{font-family:"Source Serif 4",serif;font-size:18px;line-height:1.55}
+</style></head><body>
+<script>
+const copy=`<div class="t">The Unfinished World</div>
+<p>A collective of interdisciplinary thinkers and builders questioning the boundaries of what is possible.</p>
+<p><u>Join</u></p>
+<p>Some of humanity’s most consequential problems offer no clear path to financial return. Their benefits may be widely shared, their timelines uncertain, their solutions difficult to fit within existing institutions. As a result, important possibilities remain underexplored.</p>
+<p>We believe breakthroughs emerge when different ways of understanding the world meet. A question that appears intractable within one discipline may look different through the methods, discoveries, or imagination of another.</p>
+<p>We learn together, in reading groups and member-led sessions. We connect and develop ideas. We make and test.</p>`;
+const fonts=[['f1','Cormorant Garamond 21/1.55 (current)'],['f2','EB Garamond 19/1.55'],['f3','Newsreader 19/1.5'],['f4','Crimson Pro 20/1.5'],['f5','Spectral 17/1.6'],['f6','Source Serif 4 18/1.55']];
+document.body.innerHTML=fonts.map(([c,n])=>`<div class="col ${c}"><h6>${n}</h6>${copy}</div>`).join('');
+</script></body></html>

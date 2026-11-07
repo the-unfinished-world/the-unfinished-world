@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>H · Ghibli Wide</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#f1ede4;--ink:#161513;--ink2:#3b3833;--moon:#f0c6c2}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:var(--paper);color:var(--ink);font-family:Inter,system-ui,sans-serif;overflow:hidden;position:relative}
+body::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.3;mix-blend-mode:multiply;z-index:6;
+ background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.3 0 0 0 0 0.28 0 0 0 0 0.25 0 0 0 .18 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+nav{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:34px 56px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;z-index:5}
+nav .brand{font-family:"Cormorant Garamond",serif;font-size:20px;letter-spacing:.02em;text-transform:none;font-style:italic}
+nav ul{display:flex;gap:40px;list-style:none}
+nav a{color:var(--ink);text-decoration:none}
+.hero{position:absolute;left:0;right:0;top:120px;text-align:center;z-index:5;padding:0 24px}
+.hero h1{font-family:"Cormorant Garamond",serif;font-weight:300;font-size:78px;line-height:.98;letter-spacing:-.01em;max-width:820px;margin:0 auto}
+.hero h1 em{font-style:italic}
+.hero p{margin:22px auto 0;font-size:15px;line-height:1.7;color:var(--ink2);max-width:440px}
+.cta{display:inline-flex;align-items:center;gap:14px;margin-top:30px;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink);text-decoration:none;border-bottom:1px solid var(--ink);padding-bottom:8px}
+svg.scene,canvas.scene{position:absolute;inset:0;width:100%;height:100%}
+canvas.scene{z-index:2}
+canvas.walker{z-index:4}
+svg.fg{z-index:3}
+.cloud{animation:drift 60s linear infinite}
+@keyframes drift{to{transform:translateX(-120px)}}
+.debug{position:absolute;right:56px;bottom:30px;z-index:7;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#8a857a}
+</style>
+</head>
+<body>
+<nav><div class="brand">The Unfinished World</div><ul><li><a href="#">Thesis</a></li><li><a href="#">How we work</a></li><li><a href="#">People</a></li><li><a href="#">Join</a></li></ul></nav>
+
+<div class="hero">
+  <h1>A world still <em>being built</em>.</h1>
+  <p>A collective of interdisciplinary thinkers and builders, working on the questions between fields and outside the market.</p>
+  <a class="cta" href="#">Join the collective</a>
+</div>
+
+<svg class="scene" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9d4c8"/><stop offset=".6" stop-color="#f1ede4"/></linearGradient>
+    <linearGradient id="valley" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f1ede4"/><stop offset="1" stop-color="#b9b3a6"/></linearGradient>
+    <filter id="rough"><feTurbulence type="fractalNoise" baseFrequency=".025" numOctaves="3" seed="5"/><feDisplacementMap in="SourceGraphic" scale="14"/></filter>
+  </defs>
+  <rect width="1440" height="900" fill="url(#sky)"/>
+  <circle cx="1180" cy="210" r="66" fill="#f0c6c2"/>
+  <g class="cloud" fill="#f7f4ee">
+    <path d="M160 300 h300 a34 34 0 0 0 0 -68 h-90 a48 48 0 0 0 -92 -16 a42 42 0 0 0 -84 12 a36 36 0 0 0 -34 72Z"/>
+    <path d="M900 360 h380 a30 30 0 0 0 0 -60 h-80 a44 44 0 0 0 -86 -14 a40 40 0 0 0 -80 10 a32 32 0 0 0 -134 64Z"/>
+  </g>
+  <path d="M0 520 C 200 440, 400 470, 600 420 S 900 400, 1100 450 S 1300 430, 1440 470 L1440 600 L0 600Z" fill="#161513" opacity=".12"/>
+  <path d="M400 560 C 560 500, 700 520, 860 480 S 1140 470, 1440 520 L1440 640 L400 640Z" fill="#161513" opacity=".2"/>
+  <rect x="0" y="560" width="1440" height="340" fill="url(#valley)"/>
+  <!-- far landing: cliff on the right -->
+  <path filter="url(#rough)" d="M1120 470 C 1180 440, 1300 450, 1440 420 L1440 900 L1100 900 C 1090 760, 1130 600, 1120 470Z" fill="#161513"/>
+  <g fill="#161513"><path d="M1300 420 l-30 -22 h60z"/><rect x="1282" y="398" width="36" height="6"/><path d="M1300 398 l-24 -18 h48z"/><rect x="1294" y="366" width="12" height="20"/></g>
+</svg>
+
+<canvas class="scene" id="c"></canvas>
+<canvas class="scene walker" id="w"></canvas>
+
+<svg class="scene fg" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <defs><filter id="rough2"><feTurbulence type="fractalNoise" baseFrequency=".02" numOctaves="3" seed="2"/><feDisplacementMap in="SourceGraphic" scale="18"/></filter></defs>
+  <!-- near ridge; the walker starts here. Its top edge is the ground line (see RIDGE below). -->
+  <path filter="url(#rough2)" d="M0 700 C 160 660, 300 680, 440 640 C 520 620, 560 640, 600 660 C 640 690, 700 760, 760 900 L0 900Z" fill="#161513"/>
+  <g stroke="#161513" stroke-width="2" stroke-linecap="round" fill="none"><path d="M120 690 l6 -22"/><path d="M150 684 l8 -26"/><path d="M190 680 l4 -24"/><path d="M380 650 l6 -22"/><path d="M410 644 l8 -24"/><path d="M470 640 l6 -20"/></g>
+</svg>
+
+<div class="debug" id="dbg"></div>
+
+<script src="assembly.js"></script>
+<script src="walker.js"></script>
+<script>
+// --- Path geometry ------------------------------------------------------
+// The causeway leaves the near ridge at P0 and curves away to the far cliff at P2.
+const P0 = {x: 548, y: 644}, P1 = {x: 820, y: 560}, P2 = {x: 1125, y: 468};
+const bez = (a, b, c, t) => (1 - t) * (1 - t) * a + 2 * (1 - t) * t * b + t * t * c;
+const DEPTH_FAR = 6;                                    // depth multiplier at the far end
+const depthAt = t => 1 + t * (DEPTH_FAR - 1);
+const DECK_W = 150;                                     // deck width at depth 1 (design px)
+const WALKER_H = DECK_W * .78;                          // a person is ~0.78 of this causeway's width
+
+// Walker's full route: along the ridge top, then the causeway. Ridge top is a cubic from the fg SVG.
+const cub = (a, b, c, d, t) => (1-t)**3*a + 3*(1-t)**2*t*b + 3*(1-t)*t*t*c + t**3*d;
+const ridge = u => ({ x: cub(440, 520, 560, 600, u), y: cub(640, 620, 640, 660, u) - 2 });   // u in [0,1]; P0 sits near u=.6
+function route(t) {
+  // t in [0,1]. First 14% walks along the ridge (depth 1), then the causeway.
+  if (t < .14) { const u = .18 + (t / .14) * .42; return { x: ridge(u).x, y: ridge(u).y, depth: 1 }; }
+  const q = (t - .14) / .86;
+  return { x: bez(P0.x, P1.x, P2.x, q), y: bez(P0.y, P1.y, P2.y, q), depth: depthAt(q) };
+}
+
+// --- Causeway pieces ----------------------------------------------------
+const slots = [];
+// Rows are spaced so that world spacing is constant: screen spacing shrinks with depth (dt ~ 1/depth).
+const ROW_K = 3.5 / 125;
+const fadeAt = depth => 1 - .5 * (depth - 1) / (DEPTH_FAR - 1);      // atmospheric perspective
+let ri = 0;
+for (let t = 0; t < 1; t += ROW_K / depthAt(t), ri++) {
+  const x = bez(P0.x, P1.x, P2.x, t), y = bez(P0.y, P1.y, P2.y, t);
+  const tx = 2 * (1 - t) * (P1.x - P0.x) + 2 * t * (P2.x - P1.x), ty = 2 * (1 - t) * (P1.y - P0.y) + 2 * t * (P2.y - P1.y);
+  const ang = Math.atan2(ty, tx);
+  const nx = -Math.sin(ang), ny = Math.cos(ang);
+  const depth = depthAt(t), fade = fadeAt(depth);
+  const w = DECK_W / depth, n = Math.max(3, Math.round(w / 9));
+  const pw = w / n;
+  const plankL = Math.max(1.4, 11 / depth), plankW = Math.max(1, pw * .8);
+  for (let k = 0; k < n; k++) {
+    const off = -w / 2 + pw * (k + .5);
+    slots.push({ x: x + nx * off * .35, y: y + ny * off * .35, w: plankL, h: plankW * .4, rot: ang, order: t + Math.random() * .012, fade });
+  }
+  if (ri % 6 === 0) { const ph = 70 / depth; slots.push({ x, y: y + ph / 2 + 2, w: Math.max(1.2, 5 / depth), h: ph, order: t, color: '#3b3833', fade }); }
+}
+
+// --- Walker canvas ------------------------------------------------------
+const wc = document.getElementById('w'), wctx = wc.getContext('2d');
+let dpr = Math.min(devicePixelRatio || 1, 2);
+function sizeW() { wc.width = wc.clientWidth * dpr; wc.height = wc.clientHeight * dpr; }
+addEventListener('resize', sizeW); sizeW();
+let prev = null, phase = 0, fade = 0;
+
+Assembly(document.getElementById('c'), {
+  slots, cycle: 24, build: 15, hold: 5, alphaMin: .7, durMin: 1.2, durMax: 2.6,
+  spawn: sl => Math.random() < .6 ? { x: sl.x + (Math.random() - .5) * 700, y: 940 } : { x: sl.x + (Math.random() - .5) * 900, y: -60 },
+  onFrame: (p, ph, time) => {
+    // Walker progress: starts on the ridge at the beginning of the cycle, stays ~2s behind the piece frontier.
+    const LAG = 2.0 / 15;                              // frontier lag in progress units
+    let t = Math.max(0, Math.min(1, (p - LAG) / (1 - LAG)));
+    if (ph === 'hold') t = 1;
+    const pos = route(t);
+    const h = WALKER_H / pos.depth;
+    // foot-locked cadence: advance the cycle by distance travelled / stride length (2 steps per cycle = 0.84h)
+    if (prev) { const ds = Math.hypot(pos.x - prev.x, pos.y - prev.y); phase += (ds / (0.84 * h)) * Math.PI * 2; }
+    prev = pos;
+    const idle = ph === 'hold' || (p < LAG);
+    // fade in at start, out during dissolve
+    const target = ph === 'dissolve' ? 0 : 1;
+    fade += (target - fade) * .06;
+
+    const W = wc.clientWidth, H = wc.clientHeight, s = Math.max(W / 1440, H / 900), ox = (W - 1440 * s) / 2, oy = (H - 900 * s) / 2;
+    wctx.setTransform(dpr, 0, 0, dpr, 0, 0); wctx.clearRect(0, 0, W, H);
+    wctx.setTransform(dpr * s, 0, 0, dpr * s, ox * dpr, oy * dpr);
+    drawWalker(wctx, { x: pos.x, y: pos.y, h, phase, alpha: fade * (1 - .35 * (pos.depth - 1) / (DEPTH_FAR - 1)), idle });
+    document.getElementById('dbg').textContent = `depth ${pos.depth.toFixed(2)} · walker ${h.toFixed(0)}px · deck ${(DECK_W / pos.depth).toFixed(0)}px · ${ph}`;
+  }
+});
+</script>
+</body>
+</html>

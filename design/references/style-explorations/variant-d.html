@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>D · Paper Layers</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,300&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--p0:#fbf8f2;--p1:#efeae0;--p2:#d8d3c8;--p3:#a9a49a;--p4:#5c5953;--p5:#232220;--peach:#f5c8ad}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:var(--p0);color:var(--p5);font-family:Inter,system-ui,sans-serif;overflow:hidden;position:relative;perspective:1200px}
+nav{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:32px 56px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;z-index:10}
+nav .brand{font-family:Fraunces,serif;font-size:19px;text-transform:none;letter-spacing:0}
+nav ul{display:flex;gap:36px;list-style:none}
+nav a{color:inherit;text-decoration:none}
+.hero{position:absolute;left:0;right:0;top:150px;text-align:center;z-index:10;padding:0 24px}
+.hero h1{font-family:Fraunces,serif;font-weight:300;font-size:92px;line-height:.98;letter-spacing:-.02em;max-width:900px;margin:0 auto}
+.hero h1 em{font-style:italic;font-weight:300}
+.hero p{margin:26px auto 0;font-size:15px;line-height:1.7;color:var(--p4);max-width:460px}
+.cta{display:inline-block;margin-top:34px;background:var(--p5);color:var(--p0);padding:16px 28px;border-radius:999px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;text-decoration:none;box-shadow:0 10px 30px -12px rgba(0,0,0,.5)}
+.layer{position:absolute;left:0;right:0;bottom:0;height:100%;width:100%;pointer-events:none;transition:transform .4s ease-out}
+.layer svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.sh{filter:drop-shadow(0 -14px 18px rgba(0,0,0,.14))}
+.sun{position:absolute;left:62%;top:17%;width:120px;height:120px;border-radius:50%;background:var(--peach);box-shadow:0 20px 40px -20px rgba(0,0,0,.25)}
+.piece{animation:slide 10s cubic-bezier(.6,.05,.2,1) infinite;transform-origin:center}
+@keyframes slide{0%{transform:translate(0,-300px);opacity:0}8%{opacity:1}30%{transform:translate(0,0)}88%{opacity:1}100%{opacity:0}}
+.sway{animation:sway 14s ease-in-out infinite alternate}
+@keyframes sway{to{transform:translateX(30px)}}
+</style>
+</head>
+<body>
+<nav><div class="brand">The Unfinished World</div><ul><li><a href="#">Thesis</a></li><li><a href="#">How we work</a></li><li><a href="#">People</a></li><li><a href="#">Join</a></li></ul></nav>
+
+<div class="hero">
+  <h1>A world still <em>being built</em>.</h1>
+  <p>A collective of interdisciplinary thinkers and builders working on the questions that fall between fields and outside the market.</p>
+  <a class="cta" href="#">Join the collective</a>
+</div>
+
+<div class="sun"></div>
+
+<div class="layer" data-depth="0.02"><svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMax slice"><path class="sh" d="M0 600 C 300 520, 500 560, 720 420 C 900 300, 1100 480, 1440 460 L1440 900 L0 900Z" fill="#efeae0"/></svg></div>
+<div class="layer" data-depth="0.05"><svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMax slice"><g class="sway"><path class="sh" d="M-60 640 C 160 580, 360 610, 540 590 C 700 570, 860 640, 1100 600 C 1260 570, 1380 620, 1500 610 L1500 900 L-60 900Z" fill="#d8d3c8"/></g></svg></div>
+<div class="layer" data-depth="0.09"><svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMax slice">
+  <!-- water band -->
+  <rect x="0" y="700" width="1440" height="200" fill="#a9a49a"/>
+  <!-- left cliff -->
+  <path class="sh" d="M0 640 L 200 600 L 380 620 L 450 600 L 450 900 L 0 900Z" fill="#5c5953"/>
+  <!-- right cliff -->
+  <path class="sh" d="M990 610 L 1120 580 L 1300 600 L 1440 570 L 1440 900 L 990 900Z" fill="#5c5953"/>
+  <!-- bridge pieces -->
+  <g fill="#232220" class="sh">
+    <rect x="450" y="600" width="110" height="16" rx="2"/>
+    <rect x="560" y="598" width="110" height="16" rx="2"/>
+    <rect x="670" y="597" width="110" height="16" rx="2"/>
+    <rect class="piece" style="animation-delay:0s" x="780" y="597" width="110" height="16" rx="2"/>
+    <rect class="piece" style="animation-delay:2s" x="890" y="598" width="100" height="16" rx="2"/>
+  </g>
+  <g fill="#232220" opacity=".9"><rect x="500" y="616" width="12" height="90"/><rect x="720" y="613" width="12" height="90"/></g>
+  <g fill="none" stroke="#232220" stroke-dasharray="5 7" stroke-width="2" opacity=".45"><rect x="780" y="597" width="210" height="16" rx="2"/><rect x="940" y="614" width="12" height="90"/></g>
+</svg></div>
+<div class="layer" data-depth="0.14"><svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMax slice"><path class="sh" d="M-40 820 C 200 790, 420 830, 700 810 C 980 790, 1200 840, 1480 820 L1480 900 L-40 900Z" fill="#232220"/></svg></div>
+
+<script>
+const layers=[...document.querySelectorAll('.layer')];
+addEventListener('mousemove',e=>{const x=(e.clientX/innerWidth-.5),y=(e.clientY/innerHeight-.5);layers.forEach(l=>{const d=+l.dataset.depth;l.style.transform=`translate(${-x*d*400}px,${-y*d*200}px)`})});
+</script>
+</body>
+</html>

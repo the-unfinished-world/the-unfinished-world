@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>C · Blueprint Night</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0d0e11;--line:#e9e9e6;--dim:#7d7f85;--sky:#a9d4f5}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--line);font-family:"Space Grotesk",system-ui,sans-serif;overflow:hidden;position:relative}
+.grid{position:absolute;inset:0;background-image:linear-gradient(rgba(233,233,230,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(233,233,230,.05) 1px,transparent 1px);background-size:48px 48px}
+nav{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:28px 48px;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;z-index:3;color:var(--dim)}
+nav .brand{color:var(--line)}
+nav ul{display:flex;gap:32px;list-style:none}
+nav a{color:inherit;text-decoration:none}
+.hero{position:absolute;left:48px;bottom:72px;z-index:3;max-width:720px}
+.hero .tag{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--sky);margin-bottom:18px}
+.hero h1{font-weight:300;font-size:72px;line-height:1.02;letter-spacing:-.025em}
+.hero p{margin-top:22px;font-size:15px;line-height:1.65;color:var(--dim);max-width:520px}
+.cta{display:inline-block;margin-top:34px;font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--bg);background:var(--sky);padding:14px 22px;text-decoration:none}
+.meta{position:absolute;right:48px;bottom:72px;z-index:3;font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--dim);text-align:right;line-height:1.9}
+.meta b{color:var(--line);font-weight:400}
+svg.scene{position:absolute;inset:0;width:100%;height:100%}
+.guide{stroke-dasharray:3 6;opacity:.45}
+.truss{stroke-dasharray:140;stroke-dashoffset:140;animation:draw 11s linear infinite}
+@keyframes draw{0%{stroke-dashoffset:140;opacity:0}5%{opacity:1}35%{stroke-dashoffset:0}90%{stroke-dashoffset:0;opacity:1}100%{opacity:0}}
+.scan{animation:scan 11s linear infinite}
+@keyframes scan{0%{transform:translateX(0)}100%{transform:translateX(560px)}}
+.blink{animation:blink 1.2s steps(2) infinite}
+@keyframes blink{to{opacity:0}}
+</style>
+</head>
+<body>
+<div class="grid"></div>
+<nav><div class="brand">THE UNFINISHED WORLD</div><ul><li><a href="#">01 Thesis</a></li><li><a href="#">02 Method</a></li><li><a href="#">03 People</a></li><li><a href="#">04 Join</a></li></ul></nav>
+
+<svg class="scene" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true" fill="none" stroke="#e9e9e6" stroke-width="1.2">
+  <!-- moon, line -->
+  <circle cx="1120" cy="150" r="54" stroke="#a9d4f5"/><circle cx="1120" cy="150" r="70" class="guide"/>
+  <line x1="1120" y1="60" x2="1120" y2="240" class="guide"/><line x1="1030" y1="150" x2="1210" y2="150" class="guide"/>
+  <!-- distant mountain -->
+  <path d="M560 420 L 760 220 L 960 420" opacity=".5"/>
+  <path d="M700 280 L 760 220 L 820 280 L 790 272 L 760 300 L 730 268Z" opacity=".5"/>
+  <!-- water line -->
+  <line x1="0" y1="640" x2="1440" y2="640" opacity=".5"/>
+  <g opacity=".3"><line x1="0" y1="690" x2="1440" y2="690" class="guide"/><line x1="0" y1="740" x2="1440" y2="740" class="guide"/><line x1="0" y1="790" x2="1440" y2="790" class="guide"/></g>
+  <!-- left cliff -->
+  <path d="M0 500 L 180 470 L 330 440 L 420 450 L 440 470 L 440 640" />
+  <path d="M60 520 L 200 500 M120 560 L 300 520 M60 600 L 400 560" opacity=".35"/>
+  <!-- right cliff -->
+  <path d="M1000 470 L 1040 440 L 1160 430 L 1300 450 L 1440 430 M1000 470 L 1000 640"/>
+  <path d="M1040 520 L 1300 500 M1060 580 L 1400 560" opacity=".35"/>
+  <!-- bridge deck guide -->
+  <path d="M440 470 L 1000 470" class="guide"/>
+  <!-- built section -->
+  <path d="M440 470 L 720 470" stroke-width="2.5"/>
+  <path d="M440 470 L 480 430 L 520 470 L 560 430 L 600 470 L 640 430 L 680 470 L 720 430 L 720 470" />
+  <path d="M440 430 L 720 430" />
+  <!-- trusses being drawn -->
+  <g>
+    <path class="truss" style="animation-delay:0s" d="M720 470 L 760 430 L 800 470 L 800 430"/>
+    <path class="truss" style="animation-delay:1.2s" d="M800 470 L 840 430 L 880 470 L 880 430"/>
+    <path class="truss" style="animation-delay:2.4s" d="M880 470 L 920 430 L 960 470 L 960 430"/>
+    <path class="truss" style="animation-delay:3.6s" d="M960 470 L 1000 430 L 1000 470"/>
+    <path class="truss" style="animation-delay:4.8s" d="M720 470 L 1000 470" stroke-width="2.5"/>
+    <path class="truss" style="animation-delay:4.8s" d="M720 430 L 1000 430"/>
+  </g>
+  <!-- piers -->
+  <path d="M560 470 L 560 640 M880 470 L 880 640" />
+  <path d="M700 470 L 700 640" class="guide"/>
+  <!-- dimension marks -->
+  <g stroke="#a9d4f5" opacity=".9">
+    <line x1="440" y1="380" x2="1000" y2="380"/><line x1="440" y1="372" x2="440" y2="388"/><line x1="1000" y1="372" x2="1000" y2="388"/>
+    <line x1="720" y1="372" x2="720" y2="388"/>
+  </g>
+  <!-- scanning cursor across the deck -->
+  <g class="scan"><line x1="440" y1="400" x2="440" y2="500" stroke="#a9d4f5" stroke-width="1"/></g>
+  <!-- boat -->
+  <path d="M240 700 l44 0 l-8 10 l-28 0z M262 660 l0 40 M262 660 l20 34 l-20 0z"/>
+</svg>
+
+<div class="hero">
+  <div class="tag">Span · 560 m · 48% complete<span class="blink">_</span></div>
+  <h1>Build the bridge<br>no market will fund.</h1>
+  <p>A collective of interdisciplinary thinkers and builders working on the questions that fall between fields. We learn together, connect ideas, and make things to test them.</p>
+  <a class="cta" href="#">Request to join →</a>
+</div>
+<div class="meta">A: <b>Physics</b> → <b>Policy</b><br>B: <b>Biology</b> → <b>Design</b><br>C: <b>under construction</b></div>
+</body>
+</html>

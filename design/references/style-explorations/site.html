@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Unfinished World</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#f1ede4;--ink:#1c1a17}
+*{box-sizing:border-box;margin:0}
+html{background:var(--paper)}
+body{background:var(--paper);color:var(--ink);font-family:"EB Garamond",Georgia,serif;font-size:20px;line-height:1.5;font-weight:400;position:relative}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;opacity:.34;mix-blend-mode:multiply;z-index:6;
+ background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.3 0 0 0 0 0.28 0 0 0 0 0.25 0 0 0 .18 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+canvas.scene{position:fixed;inset:0;width:100%;height:100%;z-index:2}
+.veil{position:fixed;left:0;top:0;bottom:0;width:640px;z-index:3;pointer-events:none;background:linear-gradient(90deg,rgba(241,237,228,.92) 0%,rgba(241,237,228,.86) 55%,rgba(241,237,228,0) 100%)}
+.title{position:fixed;left:56px;top:40px;z-index:7;font-style:italic}
+.band{position:fixed;left:0;top:0;width:640px;height:150px;z-index:6;pointer-events:none;background:linear-gradient(180deg,rgba(241,237,228,1) 0%,rgba(241,237,228,.95) 70%,rgba(241,237,228,0) 100%)}
+.copy{position:relative;z-index:5;max-width:420px;margin-left:56px;padding:150px 0 40vh}
+.copy p{margin:0 0 .55em}
+.copy a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--ink)}
+.join{display:inline-block;margin:0 0 1.1em;padding:.3em .95em .36em;border:1px solid var(--ink);border-radius:0;color:var(--ink);text-decoration:none}
+.join:hover{background:var(--ink);color:var(--paper)}
+.k{font-style:normal;background:linear-gradient(transparent 22%,rgba(239,199,195,.5) 22%,rgba(239,199,195,.5) 96%,transparent 96%);padding:0 .12em;margin:0 -.1em;border-radius:2px 5px 3px 6px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.space{height:1.05em}
+.cue{position:fixed;left:56px;bottom:28px;z-index:7;opacity:.55;transition:opacity .4s}
+.cue.off{opacity:0}
+.fade{position:fixed;left:0;bottom:0;width:640px;height:140px;z-index:6;pointer-events:none;background:linear-gradient(180deg,rgba(241,237,228,0),rgba(241,237,228,.95))}
+@media (max-width:760px){.veil{width:100%;background:rgba(241,237,228,.8)}.copy{margin:0 24px;max-width:none}.title{left:24px}body{font-size:19px}}
+</style>
+</head>
+<body>
+<div class="title">The Unfinished World</div>
+<canvas class="scene" id="c"></canvas>
+<div class="veil"></div>
+<div class="band"></div>
+<div class="fade"></div>
+
+<div id="dbg" hidden></div>
+
+<main class="copy">
+  <a class="join" href="#join">Join the Collective</a>
+  <p>A collective of <em class="k">interdisciplinary thinkers and builders</em> questioning the boundaries of what is possible.</p>
+  <div class="space"></div>
+  <p>Some of humanity’s most consequential problems offer no clear path to financial return. Their benefits are widely shared, their timelines uncertain, their solutions a poor fit for existing institutions. So they stay underexplored.</p>
+  <p>Commercial incentives drive extraordinary innovation, and they also decide which futures get attention. We begin with <em class="k">a different question</em>: what would be worth understanding or creating because of <em class="k">what it could make possible for humanity</em>?</p>
+  <div class="space"></div>
+  <p>Breakthroughs emerge when <em class="k">different ways of understanding the world meet</em>. A question that looks intractable within one discipline may look different through the methods, discoveries, or imagination of another.</p>
+  <p>So we bring people together across fields. We read together and run member-led sessions. We workshop questions and talk through frontier technology. We spend work days making things: writing, experiments, projects. Promising ideas get help on their way to research and practice.</p>
+  <div class="space"></div>
+  <p>We look for curiosity, intellectual humility, depth, generosity, imagination, and public purpose. Questions are welcome before they are well formed. Disagreement deepens understanding. <em class="k">Everyone teaches and everyone learns.</em></p>
+  <p id="join">We want a world in which our collective knowledge and imagination help humanity pursue <em class="k">possibilities whose value exceeds their immediate financial return</em>. If that sounds like you, <a href="mailto:hello@theunfinishedworld.org">join the collective</a>.</p>
+</main>
+
+<script src="ink.js"></script>
+<script src="bridges.js"></script>
+<script src="walker7.js"></script>
+<script src="walker8.js"></script>
+<script src="brushfigure.js"></script>
+<script>
+const { rng, roughen, smooth, pathOf, bbox, wash, contour, cun, dots, pine, mist, fadeBase, rock, INK } = Ink;
+const PAPER = '#f1ede4';
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+let dpr = Math.min(devicePixelRatio || 1, 2), W = 0, H = 0, S = 1, OX = 0, OY = 0;
+function resize() { W = cv.clientWidth; H = cv.clientHeight; cv.width = W * dpr; cv.height = H * dpr; S = Math.max(W / 1440, H / 900); OX = (W - 1440 * S) / 2; OY = (H - 900 * S) / 2; }
+addEventListener('resize', resize); resize();
+const bez = (a, b, c, t) => (1 - t) * (1 - t) * a + 2 * (1 - t) * t * b + t * t * c;
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+const lerp = (a, b, t) => a + (b - a) * t;
+function vnoise(x, seed) { const i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f); return lerp(rng(i * 7 + seed)(), rng((i + 1) * 7 + seed)(), u); }
+function fbm(x, seed) { return vnoise(x, seed) * .55 + vnoise(x * 2.3 + 11, seed + 1) * .3 + vnoise(x * 5.1 + 29, seed + 2) * .15; }
+
+// ---------- offscreen cache ----------------------------------------------------------
+const CACHE = new Map(); const CSCALE = 1.5;
+function cached(key, x0, y0, w, h, render) {
+  let c = CACHE.get(key);
+  if (!c) {
+    const oc = document.createElement('canvas'); oc.width = Math.ceil(w * CSCALE); oc.height = Math.ceil(h * CSCALE);
+    const o = oc.getContext('2d'); o.setTransform(CSCALE, 0, 0, CSCALE, -x0 * CSCALE, -y0 * CSCALE); render(o);
+    c = { oc, x0, y0, w, h }; CACHE.set(key, c);
+    if (CACHE.size > 160) CACHE.delete(CACHE.keys().next().value);
+  }
+  ctx.drawImage(c.oc, c.x0, c.y0, c.w, c.h);
+}
+
+const drawPiece = sl => Bridges.drawPiece(ctx, sl);
+
+// ---------- world --------------------------------------------------------------------
+const STEP = 215, GORGE_L = 800, GORGE_R = 1080, DECK_W = 110, WALKER_H = 100, SPEED = 58;
+const ledges = new Map(), bridges = new Map();
+function ledge(k) {
+  if (ledges.has(k)) return ledges.get(k);
+  const r = rng(k * 131 + 7), left = k % 2 === 0, yTop = -k * STEP, dir = left ? 1 : -1;
+  const xe = left ? GORGE_L - 30 + r() * 60 : GORGE_R - 30 + r() * 60;
+  const back = xe - dir * (left ? 190 + r() * 30 : 340 + r() * 60);
+  const top = []; const n = 5;
+  for (let i = 0; i <= n; i++) { const t = i / n; top.push([lerp(back, xe, t), yTop - (1 - t) * 26 + (i > 0 && i < n ? (r() - .5) * 18 : 0)]); }
+  const H = STEP * 2 + 90 + r() * 40;   // overlaps the next mass down on the same side before its base fades
+  const body = [[xe + dir * 8, yTop + 30], [xe - dir * 6, yTop + 70], [xe - dir * 24, yTop + 140 + r() * 30], [xe - dir * 10, yTop + H * .55], [xe - dir * 70, yTop + H * .8], [xe - dir * 160, yTop + H], [back - dir * 60, yTop + H * .9], [back - dir * 90, yTop + H * .4], [back - dir * 40, yTop + 40]];
+  const poly = top.concat(body);
+  const L = { k, left, yTop, xe, dir, back, edgeIn: [xe + dir * 2, yTop - 2], landing: [xe - dir * 62, yTop - 5], edgeOut: [xe - dir * 2, yTop - 2], top, poly, seed: k * 17 + 3 };
+  ledges.set(k, L); return L;
+}
+function bridge(k) {
+  if (bridges.has(k)) return bridges.get(k);
+  const A = ledge(k), B = ledge(k + 1);
+  const Bk = Bridges.make({ k, P0: { x: A.edgeOut[0], y: A.edgeOut[1] }, P2: { x: B.edgeIn[0], y: B.edgeIn[1] }, landing: { x: B.landing[0], y: B.landing[1] }, type: ['rope', 'truss', 'pier', 'cantilever'][k % 4], seed: k * 977 + 5, DECK_W, INK });
+  bridges.set(k, Bk); return Bk;
+}
+// rock pinnacles under pier bridges: a thin ink mass rising out of the mist, painted once
+function drawPinnacle(k, i, pn) {
+  const H = 250, x0 = pn.x - 90, y0 = pn.yTop - 20;
+  cached(`pin${k}_${i}`, x0, y0, 180, H + 40, o => {
+    const r = rng(pn.seed), w0 = pn.w / 2, w1 = w0 + 20 + r() * 14;
+    const pts = [[pn.x - w0, pn.yTop], [pn.x - w0 * .5, pn.yTop - 1], [pn.x, pn.yTop - 1], [pn.x + w0 * .5, pn.yTop - 1], [pn.x + w0, pn.yTop], [pn.x + w0 + 6, pn.yTop + 40], [pn.x + w1 * .8, pn.yTop + 150], [pn.x + w1, pn.yTop + H], [pn.x - w1, pn.yTop + H], [pn.x - w1 * .85, pn.yTop + 170], [pn.x - w0 - 8, pn.yTop + 50]];
+    rock(o, pts, { seed: pn.seed, amp: 2.5, round: 2, base: .2, pool: .3, lip: .1, poolEdge: .14, cun: 50, cunLen: 40, cunAlpha: .18, lineWidth: 2.6, ridge: [[pn.x - w0, pn.yTop], [pn.x + w0, pn.yTop]] });
+    o.fillStyle = '#2a2825'; o.globalAlpha = .85; o.fillRect(pn.x - w0 - 2, pn.yTop - 2, w0 * 2 + 4, 4); o.globalAlpha = 1;
+    fadeBase(o, x0, y0, 180, H + 40, .42);
+  });
+}
+const route = []; let routeLen = 0;
+function extendRoute(upToK) {
+  while (route.length < upToK * 2 + 2) {
+    const k = route.length >> 1, Lk = ledge(k);
+    if (route.length % 2 === 0) { const a = Lk.edgeIn, m = Lk.landing, b = Lk.edgeOut, l1 = Math.hypot(m[0] - a[0], m[1] - a[1]), l2 = Math.hypot(b[0] - m[0], b[1] - m[1]), len = l1 + l2; route.push({ kind: 'ledge', k, s0: routeLen, len, dir: Lk.left ? -1 : 1, fn: t => { const s = t * len; return s < l1 ? { x: lerp(a[0], m[0], s / l1), y: lerp(a[1], m[1], s / l1) } : { x: lerp(m[0], b[0], (s - l1) / l2), y: lerp(m[1], b[1], (s - l1) / l2) }; }, turnAt: l1 / len }); routeLen += len; }
+    else { const Bk = bridge(k); route.push({ kind: 'bridge', k, s0: routeLen, len: Bk.len, dir: Lk.left ? 1 : -1, fn: t => { const p = Bk.at(t * Bk.len); return { x: p.x, y: p.y - 2 }; } }); routeLen += Bk.len; }
+  }
+}
+function walkerAt(dist) { extendRoute(Math.floor(dist / 450) + 3); let seg = route[0]; for (const s of route) { if (dist >= s.s0) seg = s; else break; } const t = Math.min(1, (dist - seg.s0) / seg.len); return Object.assign(seg.fn(t), { seg, t }); }
+const LEAD = 140;
+function lockTime(Bk, u) { const sgm = route.find(s => s.kind === 'bridge' && s.k === Bk.k); return (sgm.s0 + u * Bk.len - LEAD) / SPEED; }
+
+// ---------- painted elements (cached) ------------------------------------------------
+function drawLedge(L) {
+  const M = 40, xs = L.poly.map(p => p[0]), ys = L.poly.map(p => p[1]);
+  const x0 = Math.min(...xs) - M - 80, y0 = Math.min(...ys) - 110, w = Math.max(...xs) - x0 + M + 80, h = Math.max(...ys) - y0 + M + 60;
+  cached('ledge' + L.k, x0, y0, w, h, o => {
+    rock(o, L.poly, { seed: L.seed, amp: 4, round: 2, base: .2, pool: .32, lip: .16, poolEdge: .14, cun: 90, cunLen: 50, cunAlpha: .2, lineWidth: 3, ridge: L.top.slice(0, 5) });
+    const r = rng(L.seed + 9);
+    // two pines per ledge, overlapping, different heights; on left ledges keep them toward the chasm (away from the headline)
+    const tA = L.left ? .55 + r() * .25 : .12 + r() * .4, tB = tA + (r() < .5 ? -.08 : .08);
+    for (const [t, hh] of [[tA, 70 + r() * 40], [tB, 48 + r() * 28]]) { const idx = Math.max(0, Math.min(L.top.length - 2, Math.floor(t * (L.top.length - 1)))), a = L.top[idx], b = L.top[idx + 1]; pine(o, lerp(a[0], b[0], .5), lerp(a[1], b[1], .5) + 2, hh, L.seed + 20 + Math.floor(t * 100)); }
+    const bb = bbox(L.poly); fadeBase(o, bb.x0 - 20, bb.y0, bb.x1 - bb.x0 + 40, bb.y1 - bb.y0 + 8, .7);
+    // a mist band crossing the mass mid-height (60% of ledges)
+    if (r() < .6) mist(o, (bb.x0 + bb.x1) / 2 + (r() - .5) * 120, bb.y0 + (bb.y1 - bb.y0) * (.38 + r() * .2), (bb.x1 - bb.x0) * 1.3, 70 + r() * 50, L.seed + 50, { alpha: .88, blur: 6 });
+  });
+}
+const WT = 600;
+function drawWall(side, i) {
+  const key = `wall${side}_${i}`; const yA = i * WT, yB = (i + 1) * WT, M = 40;
+  const edge = side < 0 ? GORGE_L - 120 : GORGE_R + 120, outer = side < 0 ? edge - 420 : edge + 420;
+  const inner = []; for (let y = yA - M; y <= yB + M; y += 12) inner.push([edge - side * (fbm(y * .0035 + (side < 0 ? 3 : 17), 40) * 120), y]);
+  const poly = [[outer, yA - M]].concat(inner, [[outer, yB + M]]);
+  const x0 = Math.min(outer, ...inner.map(p => p[0])) - 10, x1 = Math.max(outer, ...inner.map(p => p[0])) + 30;
+  cached(key, x0, yA, x1 - x0, WT, o => {
+    o.save(); o.beginPath(); o.rect(x0, yA, x1 - x0, WT); o.clip();
+    const rp = roughen(poly, 500 + i * 7 + (side < 0 ? 0 : 1), 5, 8);
+    o.save(); pathOf(o, rp); o.clip();
+    // flat wash, darker toward the gorge edge, dissolving toward the outer side
+    const g = o.createLinearGradient(edge, 0, outer, 0); g.addColorStop(0, `rgba(29,27,24,${side < 0 ? .20 : .24})`); g.addColorStop(.55, 'rgba(29,27,24,.10)'); g.addColorStop(1, 'rgba(29,27,24,0)');
+    o.fillStyle = g; o.fillRect(x0, yA - M, x1 - x0, WT + 2 * M);
+    o.restore();
+    // texture only near the edge, in families
+    const near = inner.map(p => [p[0] - side * 150, p[1]]);
+    cun(o, inner.concat(near.slice().reverse()), { seed: 600 + i * 3 + (side < 0 ? 0 : 1), count: 70, len: 60, alpha: .16 });
+    contour(o, inner, { seed: 800 + i, width: 2.6, alpha: .7, open: true });
+    o.restore();
+  });
+}
+// background layers in parallax space
+function drawFar(py, par, seed, base, amp, alpha, freq, key) {
+  const T = 900, i = Math.floor(py / T);
+  for (const j of [i, i + 1]) cached(`${key}_${j}`, -20, j * T - 200, 1480, T + 400, o => {
+    const line = []; for (let x = -20; x <= 1460; x += 10) line.push([x, base + j * T + (fbm(x * freq + j * 3.7, seed) - .5) * amp]);
+    const bot = base + j * T + amp * .5;
+    o.beginPath(); o.moveTo(-20, bot); line.forEach(p => o.lineTo(p[0], p[1])); o.lineTo(1460, bot); o.closePath(); o.fillStyle = `rgba(29,27,24,${alpha})`; o.fill();
+    contour(o, line, { seed: seed + j, width: 1.1, alpha: .35, open: true });
+    mist(o, 720, bot, 1500, 170, seed + j, { alpha: .9, blur: 6, noLine: true });
+  });
+}
+function drawMid(py) {
+  const T = 900, i = Math.floor(py / T);
+  for (const j of [i - 1, i, i + 1]) cached(`mid_${j}`, -20, j * T - 420, 1480, T + 840, o => {
+    const r = rng(j * 53 + 9); const n = 2 + Math.floor(r() * 2);
+    for (let m = 0; m < n; m++) {
+      const cx = 700 + r() * 760, cy = j * T + 120 + r() * (T - 240), rx = 150 + r() * 220, ry = 130 + r() * 170;
+      const pts = []; const K = 26; for (let q = 0; q < K; q++) { const a = (q / K) * Math.PI * 2; const bump = 1 + (fbm(q * .9 + m * 7, j * 11 + m) - .5) * .5; pts.push([cx + Math.cos(a) * rx * bump, cy + Math.sin(a) * ry * bump * (Math.sin(a) > 0 ? .7 : 1)]); }
+      rock(o, pts, { seed: j * 91 + m * 13, amp: 5, round: 2, base: .11, pool: .15, lip: .25, poolEdge: .08, cun: 0, lineWidth: 1, lineAlpha: .4 });
+      const b = bbox(pts); fadeBase(o, b.x0 - 20, b.y0, b.x1 - b.x0 + 40, b.y1 - b.y0, .55);
+      mist(o, cx, cy + ry * .6, rx * 2.2, ry * .7, j * 7 + m, { alpha: .9, blur: 6 });
+    }
+  });
+}
+function drawMistBand(i) {
+  const r = rng(i * 71 + 1), y = i * 520 + r() * 200 - 100, x = 760 + r() * 600, w = 520 + r() * 520, h = 80 + r() * 80;
+  cached(`mist_${i}`, x - w / 2 - 120, y - h / 2 - 120, w + 240, h + 240, o => mist(o, x, y, w, h, i * 3 + 2, { alpha: .94, blur: 6 }));
+}
+
+// ---------- main loop ----------------------------------------------------------------
+const t0 = performance.now() - 1000 * (parseFloat(new URLSearchParams(location.search).get('t')) || 0); const cam = { y: 0 }; let phase = 0, prevPos = null;
+function frame(now) {
+  const T = (now - t0) / 1000, dist = T * SPEED + 40, pos = walkerAt(dist);
+  const targetY = pos.y - 900 * .60 + 450; cam.y = prevPos ? lerp(cam.y, targetY, .05) : targetY;
+  const altitude = -pos.y / STEP;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#e3ded3'); g.addColorStop(.5, PAPER); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.setTransform(dpr * S, 0, 0, dpr * S, OX * dpr, OY * dpr);
+
+  // far peaks and middle cloud-head masses (parallax)
+  for (const [par, seed, base, amp, alpha, freq, key] of [[.07, 3, 560, 300, .08, .0022, 'far1'], [.13, 9, 640, 260, .11, .0038, 'far2']]) {
+    const py = cam.y * par; ctx.save(); ctx.translate(0, 450 - cam.y * par - 450 + 0); drawFar(py - 450, par, seed, base, amp, alpha, freq, key); ctx.restore();
+  }
+  { const par = .3, py = cam.y * par; ctx.save(); ctx.translate(0, -py); drawMid(py - 450); ctx.restore(); }
+
+  // world
+  ctx.save(); ctx.translate(0, 450 - cam.y);
+  const kLo = Math.max(0, Math.floor(-(cam.y + 650) / STEP) - 1), kHi = Math.floor(-(cam.y - 800) / STEP) + 2;
+  const iLo = Math.floor((cam.y - 520) / WT), iHi = Math.floor((cam.y + 520) / WT);
+  const kw = pos.seg.k;
+  for (let k = kHi; k >= kLo; k--) { const L = ledge(k); const above = (pos.y - L.yTop) / STEP, dk = Math.abs(k - kw);
+    const depthA = dk <= 1 ? 1 : dk <= 3 ? .72 : .5;
+    ctx.globalAlpha = Math.min(depthA, above > 1.6 ? Math.max(.25, 1 - (above - 1.6) * .5) : 1); bridge(k).pinnacles.forEach((pn, i) => drawPinnacle(k, i, pn)); drawLedge(L); ctx.globalAlpha = 1; }
+  for (let k = kLo; k <= kHi; k++) {
+    const Bk = bridge(k); extendRoute(k + 2);
+    for (const sl of Bk.slots) {
+      const lt = lockTime(Bk, sl.u), tStart = lt - sl.dur; if (T < tStart) continue;
+      const p = Math.min(1, (T - tStart) / sl.dur); let x = sl.x, y = sl.y, rot = sl.rot, al = sl.a, sc = 1;
+      if (p < 1) { const e = easeOut(p), over = Math.sin(p * Math.PI) * .035; x = bez(sl.sx, sl.mx, sl.x, e); y = bez(sl.sy, sl.my, sl.y, e); rot = sl.rot + sl.rot0 * (1 - e) + over; al *= lerp(.15, 1, p);
+        if (Math.abs(x - pos.x) < 90 && y > pos.y - WALKER_H - 70 && y < pos.y + 30) continue; }
+      ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.globalAlpha = al; drawPiece(sl); ctx.restore();
+    }
+  }
+  if (prevPos) { const ds = Math.hypot(pos.x - prevPos.x, pos.y - prevPos.y); phase += (ds / (.84 * WALKER_H)) * Math.PI * 2; }
+  prevPos = pos;
+  drawWalkerBrush(ctx, { x: pos.x, y: pos.y, h: WALKER_H, phase, idle: 0, yaw: 1.25 * (pos.seg.kind === 'ledge' && pos.t < pos.seg.turnAt ? -pos.seg.dir : pos.seg.dir), alpha: 1, color: INK, variant: rng(pos.seg.k * 7919 + 3)() < .5 ? 'male' : 'female' });
+  ctx.restore();
+
+  // moon above everything, soft edge
+  ctx.setTransform(dpr * S, 0, 0, dpr * S, OX * dpr, OY * dpr); ctx.save(); ctx.filter = 'blur(3px)'; ctx.globalAlpha = .85; ctx.fillStyle = '#efc7c3'; ctx.beginPath(); ctx.arc(1180, 190, 60, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  // mist below, screen space
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const wy = OY + (pos.y - cam.y + 450) * S;
+  const mg = ctx.createLinearGradient(0, wy + 120 * S, 0, H); mg.addColorStop(0, 'rgba(241,237,228,0)'); mg.addColorStop(1, 'rgba(241,237,228,.95)');
+  ctx.fillStyle = mg; ctx.fillRect(0, 0, W, H);
+  document.getElementById('dbg').textContent = `ledge ${pos.seg.k} · ${pos.seg.kind} · altitude ${altitude.toFixed(1)} · cache ${CACHE.size}`;
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

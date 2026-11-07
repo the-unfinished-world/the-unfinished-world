@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E · Riso Poster</title>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#f2efe8;--ink:#141414;--lav:#c4b2e6}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:var(--paper);color:var(--ink);font-family:"Space Mono",monospace;overflow:hidden;position:relative}
+.grain{position:absolute;inset:0;pointer-events:none;mix-blend-mode:multiply;opacity:.7;
+ background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.1 0 0 0 0 0.1 0 0 0 .25 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E")}
+nav{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:26px 40px;font-size:12px;text-transform:uppercase;z-index:5;border-bottom:2px solid var(--ink);margin:0 40px;padding-left:0;padding-right:0}
+nav .brand{font-family:Anton,sans-serif;font-size:22px;letter-spacing:.04em}
+nav ul{display:flex;gap:28px;list-style:none}
+nav a{color:inherit;text-decoration:none}
+.hero{position:absolute;left:40px;top:120px;z-index:5}
+.hero h1{font-family:Anton,sans-serif;font-size:168px;line-height:.86;text-transform:uppercase;letter-spacing:-.01em;position:relative}
+.hero h1 .dup{position:absolute;left:5px;top:5px;color:var(--lav);z-index:-1;mix-blend-mode:multiply}
+.hero p{margin-top:28px;font-size:13px;line-height:1.6;max-width:380px;text-transform:uppercase}
+.cta{display:inline-block;margin-top:28px;background:var(--ink);color:var(--paper);padding:14px 20px;font-size:13px;text-transform:uppercase;text-decoration:none;box-shadow:6px 6px 0 var(--lav)}
+.stamp{position:absolute;right:40px;top:130px;z-index:5;width:150px;height:150px;border-radius:50%;border:2px solid var(--ink);display:grid;place-items:center;text-align:center;font-size:11px;text-transform:uppercase;line-height:1.4;transform:rotate(12deg);animation:spin 30s linear infinite}
+@keyframes spin{to{transform:rotate(372deg)}}
+svg.scene{position:absolute;inset:0;width:100%;height:100%}
+.lavlayer{transform:translate(6px,-5px);mix-blend-mode:multiply}
+.piece{animation:drop 8s cubic-bezier(.7,0,.3,1) infinite}
+@keyframes drop{0%{transform:translateY(-500px) rotate(-30deg);opacity:0}10%{opacity:1}28%{transform:translateY(0) rotate(0)}85%{opacity:1}100%{opacity:0}}
+.foot{position:absolute;bottom:32px;left:40px;right:40px;display:flex;justify-content:space-between;font-size:11px;text-transform:uppercase;z-index:5;border-top:2px solid var(--ink);padding-top:12px}
+</style>
+</head>
+<body>
+<div class="grain"></div>
+<nav><div class="brand">UNFINISHED WORLD</div><ul><li><a href="#">Thesis</a></li><li><a href="#">Method</a></li><li><a href="#">People</a></li><li><a href="#">Join</a></li></ul></nav>
+
+<div class="hero">
+  <h1>Worth<br>Building<span class="dup">Worth<br>Building</span></h1>
+  <p>A collective of interdisciplinary thinkers &amp; builders. Questions between fields. Ideas the market won't fund. Bridges nobody asked for.</p>
+  <a class="cta" href="#">Join →</a>
+</div>
+<div class="stamp">Est. 2026<br>·<br>Still<br>Unfinished<br>·</div>
+
+<svg class="scene" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <defs>
+    <pattern id="dots" width="9" height="9" patternUnits="userSpaceOnUse"><circle cx="4.5" cy="4.5" r="2.2" fill="#141414"/></pattern>
+    <pattern id="dotsL" width="9" height="9" patternUnits="userSpaceOnUse"><circle cx="4.5" cy="4.5" r="3" fill="#c4b2e6"/></pattern>
+    <pattern id="dotsS" width="7" height="7" patternUnits="userSpaceOnUse"><circle cx="3.5" cy="3.5" r="1.2" fill="#141414"/></pattern>
+  </defs>
+  <!-- lavender misregistered layer -->
+  <g class="lavlayer">
+    <circle cx="1160" cy="300" r="110" fill="#c4b2e6"/>
+    <path d="M0 600 L 220 560 L 400 590 L 460 560 L 460 900 L 0 900Z" fill="url(#dotsL)"/>
+    <path d="M980 560 L 1140 520 L 1300 560 L 1440 520 L 1440 900 L 980 900Z" fill="url(#dotsL)"/>
+  </g>
+  <!-- moon halftone -->
+  <circle cx="1160" cy="300" r="110" fill="url(#dots)" opacity=".9"/>
+  <!-- water halftone band -->
+  <rect x="0" y="700" width="1440" height="200" fill="url(#dotsS)" opacity=".7"/>
+  <!-- cliffs: solid black -->
+  <path d="M0 600 L 220 560 L 400 590 L 460 560 L 460 900 L 0 900Z" fill="#141414"/>
+  <path d="M980 560 L 1140 520 L 1300 560 L 1440 520 L 1440 900 L 980 900Z" fill="#141414"/>
+  <!-- bridge: thick bars -->
+  <g fill="#141414">
+    <rect x="460" y="556" width="130" height="22"/><rect x="590" y="552" width="130" height="22"/>
+    <rect class="piece" style="animation-delay:0s" x="720" y="550" width="130" height="22"/>
+    <rect class="piece" style="animation-delay:2.2s" x="850" y="552" width="130" height="22"/>
+  </g>
+  <g fill="#c4b2e6" class="lavlayer"><rect x="720" y="550" width="260" height="22" opacity=".8"/></g>
+  <g fill="none" stroke="#141414" stroke-width="3" stroke-dasharray="8 8"><rect x="720" y="550" width="260" height="22"/></g>
+  <g fill="#141414"><rect x="520" y="578" width="16" height="130"/><rect x="760" y="572" width="16" height="130" opacity=".3"/></g>
+</svg>
+
+<div class="foot"><span>Two paths built. One under construction.</span><span>Black · Paper · Lavender riso</span><span>No. 03 / 2026</span></div>
+</body>
+</html>

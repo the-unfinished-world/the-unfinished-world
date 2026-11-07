@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>J · The Ascent</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#f1ede4;--ink:#161513;--ink2:#3b3833}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:var(--paper);color:var(--ink);font-family:Inter,system-ui,sans-serif;overflow:hidden;position:relative}
+body::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.32;mix-blend-mode:multiply;z-index:6;
+ background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.3 0 0 0 0 0.28 0 0 0 0 0.25 0 0 0 .18 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+nav{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:34px 56px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;z-index:5}
+nav .brand{font-family:"Cormorant Garamond",serif;font-size:20px;letter-spacing:.02em;text-transform:none;font-style:italic}
+nav ul{display:flex;gap:40px;list-style:none}
+nav a{color:var(--ink);text-decoration:none}
+.hero{position:absolute;left:56px;top:150px;max-width:470px;z-index:5}
+.hero h1{font-family:"Cormorant Garamond",serif;font-weight:300;font-size:68px;line-height:.98;letter-spacing:-.01em}
+.hero h1 em{font-style:italic}
+.hero p{margin-top:24px;font-size:15px;line-height:1.7;color:var(--ink2);max-width:380px}
+.cta{display:inline-flex;align-items:center;gap:14px;margin-top:34px;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink);text-decoration:none;border-bottom:1px solid var(--ink);padding-bottom:8px}
+.cta span{display:inline-block;width:40px;height:1px;background:var(--ink)}
+canvas.scene{position:absolute;inset:0;width:100%;height:100%;z-index:2}
+.debug{position:absolute;right:56px;bottom:30px;z-index:7;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#8a857a}
+</style>
+</head>
+<body>
+<nav><div class="brand">The Unfinished World</div><ul><li><a href="#">Thesis</a></li><li><a href="#">How we work</a></li><li><a href="#">People</a></li><li><a href="#">Join</a></li></ul></nav>
+<div class="hero">
+  <h1>Some things are worth <em>building</em> before they pay.</h1>
+  <p>A collective of interdisciplinary thinkers and builders, working on the questions between fields and outside the market.</p>
+  <a class="cta" href="#"><span></span>Join the collective</a>
+</div>
+<canvas class="scene" id="c"></canvas>
+<div class="debug" id="dbg"></div>
+
+<script src="walker3.js"></script>
+<script>
+// =====================================================================================
+// One continuous world. Ledges alternate left/right up a gorge; bridge k joins ledge k to ledge k+1.
+// The walker climbs forever; the camera follows; bridges stay behind and sink into the mist.
+// =====================================================================================
+const INK = '#161513', PAPER = '#f1ede4';
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+let dpr = Math.min(devicePixelRatio || 1, 2), W = 0, H = 0, S = 1, OX = 0, OY = 0;
+function resize() { W = cv.clientWidth; H = cv.clientHeight; cv.width = W * dpr; cv.height = H * dpr; S = Math.max(W / 1440, H / 900); OX = (W - 1440 * S) / 2; OY = (H - 900 * S) / 2; }
+addEventListener('resize', resize); resize();
+function rng(seed) { let a = (seed * 2654435761) >>> 0; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const bez = (a, b, c, t) => (1 - t) * (1 - t) * a + 2 * (1 - t) * t * b + t * t * c;
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+const lerp = (a, b, t) => a + (b - a) * t;
+// smooth 1-D value noise for skylines
+function vnoise(x, seed) { const i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f); const r1 = rng(i * 7 + seed)(), r2 = rng((i + 1) * 7 + seed)(); return lerp(r1, r2, u); }
+function inkPoly(pts, seed, amp, fill, alpha) {
+  const r = rng(seed); ctx.beginPath();
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length];
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.floor(len / 9));
+    const nx = -(b[1] - a[1]) / len, ny = (b[0] - a[0]) / len;
+    for (let k = 0; k < n; k++) { const t = k / n, j = (r() - .5) * amp; const px = a[0] + (b[0] - a[0]) * t + nx * j, py = a[1] + (b[1] - a[1]) * t + ny * j; (k === 0 && i === 0) ? ctx.moveTo(px, py) : ctx.lineTo(px, py); }
+  }
+  ctx.closePath(); ctx.globalAlpha = alpha == null ? 1 : alpha; ctx.fillStyle = fill || INK; ctx.fill(); ctx.globalAlpha = 1;
+}
+
+// --- world ------------------------------------------------------------------------------
+const STEP = 215;            // vertical rise per ledge
+const GORGE_L = 790, GORGE_R = 1070;   // chasm edges, nominal
+const DECK_W = 120, WALKER_H = 108, SPEED = 62;   // world px per second
+const ledges = new Map(), bridges = new Map();
+function ledge(k) {
+  if (ledges.has(k)) return ledges.get(k);
+  const r = rng(k * 131 + 7), left = k % 2 === 0;
+  const yTop = -k * STEP, xe = left ? GORGE_L - 40 + r() * 80 : GORGE_R - 40 + r() * 80;   // chasm edge x
+  const dir = left ? 1 : -1;                     // direction from the back of the terrace toward the chasm
+  // a floating terrace: top edge runs ~360px back from the chasm edge, rising a little; a rounded nose underneath
+  const top = [];
+  const n = 4, back = xe - dir * (230 + r() * 50);
+  for (let i = 0; i <= n; i++) { const t = i / n; top.push([lerp(back, xe, t), yTop - (1 - t) * 34 + (i > 0 && i < n ? (r() - .5) * 22 : 0)]); }
+  const edgeIn = [xe, yTop], edgeOut = [xe - dir * 46, yTop - 9];
+  const body = [[xe + dir * 6, yTop + 30], [xe - dir * 10, yTop + 70], [xe - dir * 70, yTop + 95 + r() * 20], [xe - dir * 150, yTop + 150 + r() * 30], [back - dir * 20, yTop + 170], [back - dir * 40, yTop + 60]];
+  const poly = top.concat(body);
+  const L = { k, left, yTop, xe, edgeIn, edgeOut, poly, seed: k * 17 + 3 };
+  ledges.set(k, L); return L;
+}
+function bridge(k) {                               // from ledge k edgeOut to ledge k+1 edgeIn
+  if (bridges.has(k)) return bridges.get(k);
+  const A = ledge(k), B = ledge(k + 1), r = rng(k * 977 + 5);
+  const P0 = { x: A.edgeOut[0], y: A.edgeOut[1] }, P2 = { x: B.edgeIn[0], y: B.edgeIn[1] };
+  const P1 = { x: (P0.x + P2.x) / 2 + (r() - .5) * 60, y: (P0.y + P2.y) / 2 + 55 + r() * 30 };   // slight sag
+  const pts = []; let len = 0, prev = null;
+  for (let i = 0; i <= 60; i++) { const t = i / 60, p = { x: bez(P0.x, P1.x, P2.x, t), y: bez(P0.y, P1.y, P2.y, t) }; if (prev) len += Math.hypot(p.x - prev.x, p.y - prev.y); pts.push({ t, s: len, x: p.x, y: p.y }); prev = p; }
+  // slots along the deck
+  const slots = []; const rowGap = 15;
+  for (let s = 0; s < len; s += rowGap) {
+    const t = s / len, x = bez(P0.x, P1.x, P2.x, t), y = bez(P0.y, P1.y, P2.y, t);
+    const tx = 2 * (1 - t) * (P1.x - P0.x) + 2 * t * (P2.x - P1.x), ty = 2 * (1 - t) * (P1.y - P0.y) + 2 * t * (P2.y - P1.y);
+    const ang = Math.atan2(ty, tx), nx = -Math.sin(ang), ny = Math.cos(ang);
+    const n = 9, pw = DECK_W / n;
+    for (let j = 0; j < n; j++) { const off = -DECK_W / 2 + pw * (j + .5); slots.push({ x: x + nx * off * .3, y: y + ny * off * .3, w: 11, h: pw * .3, rot: ang, u: s / len + r() * .01, sx: x + (r() - .5) * 600, sy: y + 420 + r() * 300, dur: 1.1 + r() * 1.2, rot0: (r() - .5) * 3, a: .72 + r() * .28, mx: 0, my: 0 }); }
+    if (Math.round(s / rowGap) % 5 === 0) slots.push({ x, y: y + 34, w: 4, h: 64, rot: 0, u: s / len, sx: x + (r() - .5) * 300, sy: y + 500, dur: 1.4, rot0: 0, a: .9, color: '#3b3833', pier: true });
+  }
+  slots.forEach(sl => { sl.mx = (sl.sx + sl.x) / 2 + (r() - .5) * 300; sl.my = (sl.sy + sl.y) / 2 + (r() - .5) * 200; });
+  const Bk = { k, P0, P1, P2, pts, len, slots, seed: k * 31 + 11 };
+  bridges.set(k, Bk); return Bk;
+}
+// --- the walker's route: ledge k edgeIn -> edgeOut (short walk), then bridge k, repeat ------
+const route = [];  // segments {kind, k, s0, len, fn(t)}
+let routeLen = 0;
+function extendRoute(upToK) {
+  while (route.length < upToK * 2 + 2) {
+    const k = route.length >> 1;
+    const Lk = ledge(k);
+    if (route.length % 2 === 0) { // ledge walk
+      const a = Lk.edgeIn, b = Lk.edgeOut, len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      route.push({ kind: 'ledge', k, s0: routeLen, len, dir: Lk.left ? -1 : 1, fn: t => ({ x: lerp(a[0], b[0], t), y: lerp(a[1], b[1], t) }) }); routeLen += len;
+    } else {
+      const Bk = bridge(k), len = Bk.len;
+      route.push({ kind: 'bridge', k, s0: routeLen, len, dir: Lk.left ? 1 : -1, fn: t => ({ x: bez(Bk.P0.x, Bk.P1.x, Bk.P2.x, t), y: bez(Bk.P0.y, Bk.P1.y, Bk.P2.y, t) }) }); routeLen += len;
+    }
+  }
+}
+function walkerAt(dist) {
+  extendRoute(Math.floor(dist / 500) + 3);
+  let seg = route[0]; for (const sgm of route) { if (dist >= sgm.s0) seg = sgm; else break; }
+  const t = Math.min(1, (dist - seg.s0) / seg.len);
+  return Object.assign(seg.fn(t), { seg, t });
+}
+// build schedule: a piece at world progress u on bridge k locks LEAD px ahead of the walker
+const LEAD = 150;
+function lockTime(Bk, u) { const sgm = route.find(s => s.kind === 'bridge' && s.k === Bk.k); return (sgm.s0 + u * Bk.len - LEAD) / SPEED; }
+
+// --- background skylines ------------------------------------------------------------
+function skyline(camY, par, seed, base, amp, alpha, freq) {
+  const yOff = camY * par;        // parallax: far layers move less
+  ctx.beginPath(); ctx.moveTo(-10, 2000);
+  for (let x = -10; x <= 1450; x += 12) { const n = vnoise(x * freq + seed, seed) * .6 + vnoise(x * freq * 2.7 + 5, seed + 1) * .4; ctx.lineTo(x, base + yOff - n * amp); }
+  ctx.lineTo(1450, 2000); ctx.closePath(); ctx.fillStyle = INK; ctx.globalAlpha = alpha; ctx.fill(); ctx.globalAlpha = 1;
+}
+
+// --- main loop ----------------------------------------------------------------------
+const t0 = performance.now();
+const cam = { x: 720, y: 0 }; let phase = 0, prevPos = null, idle = 0;
+function frame(now) {
+  const T = (now - t0) / 1000;
+  const dist = T * SPEED + 40;
+  const pos = walkerAt(dist);
+  // camera: walker sits at ~62% of the height; x drifts a third of the way toward the walker
+  const targetY = pos.y - 900 * .62 + 450, targetX = 720;
+  cam.y = lerp(cam.y, targetY, .05); cam.x = lerp(cam.x, targetX, .03);
+  if (!prevPos) cam.y = targetY;
+  const altitude = -pos.y / STEP;                            // ledges climbed
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+  // sky: lighter as we climb
+  const skyTop = `rgb(${217 - Math.min(20, altitude)},${212 - Math.min(16, altitude)},${200 - Math.min(10, altitude)})`;
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, skyTop); g.addColorStop(.7, PAPER); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.setTransform(dpr * S, 0, 0, dpr * S, OX * dpr, OY * dpr);
+  // moon stays put on screen
+  ctx.fillStyle = '#f0c6c2'; ctx.beginPath(); ctx.arc(1180, 200, 62, 0, Math.PI * 2); ctx.fill();
+  // distant ranges, parallax
+  skyline(-cam.y, .06, 3, 520, 260, .10, .0025);
+  skyline(-cam.y, .12, 9, 600, 220, .16, .0045);
+  skyline(-cam.y, .22, 21, 700, 180, .22, .007);
+
+  // world
+  ctx.save(); ctx.translate(720 - cam.x, 450 - cam.y);
+  const kLo = Math.max(0, Math.floor((cam.y - 900) / -STEP) - 2), kHi = Math.floor((cam.y + 700) / -STEP) + 3;
+  const visible = [];
+  for (let k = Math.max(0, Math.floor(-(cam.y + 700) / STEP) - 1); k <= Math.floor(-(cam.y - 900) / STEP) + 2; k++) visible.push(k);
+  // gorge walls: two tall soft-grey masses with wavy inner edges, world-anchored so they stream past as we climb
+  for (const side of [-1, 1]) {
+    const edge = side < 0 ? GORGE_L - 170 : GORGE_R + 170;
+    ctx.beginPath(); const y0 = cam.y - 700, y1 = cam.y + 700;
+    ctx.moveTo(side < 0 ? -400 : 1840, y0);
+    for (let yy = y0; yy <= y1; yy += 16) { const nn = vnoise(yy * .004 + (side < 0 ? 3 : 11), 40) * 120 + vnoise(yy * .013 + 7, 41) * 40; ctx.lineTo(edge - side * nn, yy); }
+    ctx.lineTo(side < 0 ? -400 : 1840, y1); ctx.closePath(); ctx.fillStyle = INK; ctx.globalAlpha = .09; ctx.fill(); ctx.globalAlpha = 1;
+  }
+  // ledges, far (higher k drawn first so lower ledges overlap)
+  for (const k of [...visible].reverse()) { const L = ledge(k); inkPoly(L.poly, L.seed, 10); }
+  // bridges + pieces
+  for (const k of visible) {
+    if (k + 1 > visible[visible.length - 1] + 1) continue;
+    const Bk = bridge(k); extendRoute(k + 2);
+    for (const sl of Bk.slots) {
+      const lt = lockTime(Bk, sl.u), tStart = lt - sl.dur;
+      if (T < tStart) continue;
+      const p = Math.min(1, (T - tStart) / sl.dur);
+      let x = sl.x, y = sl.y, rot = sl.rot, al = sl.a, sc = 1;
+      if (p < 1) { const e = easeOut(p); x = bez(sl.sx, sl.mx, sl.x, e); y = bez(sl.sy, sl.my, sl.y, e); rot = sl.rot + sl.rot0 * (1 - e); al *= Math.min(1, p * 3); sc = .6 + .4 * e; }
+      ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(sc, sc); ctx.globalAlpha = al; ctx.fillStyle = sl.color || INK; ctx.fillRect(-sl.w / 2, -sl.h / 2, sl.w, sl.h); ctx.restore();
+    }
+  }
+  // walker
+  const moving = true;
+  if (prevPos) { const ds = Math.hypot(pos.x - prevPos.x, pos.y - prevPos.y); phase += (ds / (.84 * WALKER_H)) * Math.PI * 2; }
+  prevPos = pos;
+  drawWalker3(ctx, { x: pos.x, y: pos.y, h: WALKER_H, phase, idle: 0, yaw: .62 * pos.seg.dir, alpha: 1 });
+  ctx.restore();
+
+  // mist below: screen-space gradient from under the walker down
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const wy = OY + (pos.y - cam.y + 450) * S;
+  const mg = ctx.createLinearGradient(0, wy + 140 * S, 0, H); mg.addColorStop(0, 'rgba(233,228,218,0)'); mg.addColorStop(1, 'rgba(233,228,218,.92)');
+  ctx.fillStyle = mg; ctx.fillRect(0, 0, W, H);
+  document.getElementById('dbg').textContent = `ledge ${pos.seg.k} · ${pos.seg.kind} · ${pos.seg.dir > 0 ? '→' : '←'} · altitude ${altitude.toFixed(1)}`;
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

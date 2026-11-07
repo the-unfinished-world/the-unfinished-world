@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F · Engraved Line</title>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;1,6..96,400&family=IBM+Plex+Sans:wght@300;400&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#f7f5f0;--ink:#1b1a18;--mid:#6b6862;--mint:#bfe3d0}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:var(--paper);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;overflow:hidden;position:relative}
+nav{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:30px 56px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;z-index:3;color:var(--mid)}
+nav .brand{font-family:"Bodoni Moda",serif;font-size:20px;letter-spacing:.02em;text-transform:none;color:var(--ink)}
+nav ul{display:flex;gap:36px;list-style:none}
+nav a{color:inherit;text-decoration:none}
+.hero{position:absolute;left:0;right:0;top:140px;z-index:3;padding:0 56px;display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:start}
+.hero h1{font-family:"Bodoni Moda",serif;font-weight:400;font-size:88px;line-height:1;letter-spacing:-.01em}
+.hero h1 em{font-style:italic}
+.hero .side{padding-top:14px;max-width:380px;justify-self:end}
+.hero p{font-size:15px;line-height:1.7;color:var(--mid);font-weight:300}
+.cta{display:inline-flex;align-items:center;gap:12px;margin-top:28px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink);text-decoration:none}
+.cta i{width:34px;height:34px;border-radius:50%;background:var(--mint);display:grid;place-items:center;font-style:normal}
+svg.scene{position:absolute;inset:0;width:100%;height:100%}
+.seg{stroke-dasharray:70;stroke-dashoffset:70;animation:draw 10s ease-in-out infinite}
+@keyframes draw{0%{stroke-dashoffset:70;opacity:0}6%{opacity:1}30%{stroke-dashoffset:0}88%{stroke-dashoffset:0;opacity:1}100%{opacity:0}}
+.fill{animation:fade 10s ease-in-out infinite}
+@keyframes fade{0%,30%{opacity:0}45%{opacity:1}88%{opacity:1}100%{opacity:0}}
+.legend{position:absolute;bottom:36px;left:56px;z-index:3;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mid);display:flex;gap:28px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--mint);margin-right:8px;vertical-align:middle}
+</style>
+</head>
+<body>
+<nav><div class="brand">The Unfinished World</div><ul><li><a href="#">Thesis</a></li><li><a href="#">How we work</a></li><li><a href="#">People</a></li><li><a href="#">Join</a></li></ul></nav>
+
+<div class="hero">
+  <h1>Between <em>fields</em>, something is being built.</h1>
+  <div class="side">
+    <p>A collective of interdisciplinary thinkers and builders. We pursue the questions that no single discipline owns and no market will fund, and we build the bridges to reach them.</p>
+    <a class="cta" href="#"><i>→</i> Join the collective</a>
+  </div>
+</div>
+
+<svg class="scene" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <defs>
+    <pattern id="h1" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><line x1="0" y1="0" x2="0" y2="6" stroke="#1b1a18" stroke-width="1"/></pattern>
+    <pattern id="h2" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(-50)"><line x1="0" y1="0" x2="0" y2="4" stroke="#1b1a18" stroke-width="1"/></pattern>
+    <pattern id="h3" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(0)"><line x1="0" y1="0" x2="5" y2="0" stroke="#1b1a18" stroke-width=".8"/></pattern>
+    <pattern id="h4" width="3" height="3" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><line x1="0" y1="0" x2="0" y2="3" stroke="#1b1a18" stroke-width="1"/></pattern>
+  </defs>
+  <!-- moon -->
+  <circle cx="1180" cy="420" r="62" fill="#bfe3d0"/><circle cx="1180" cy="420" r="62" fill="none" stroke="#1b1a18" stroke-width="1"/>
+  <!-- distant ridge -->
+  <path d="M520 560 C 640 500, 760 470, 900 520 S 1140 560, 1440 540 L1440 600 L520 600Z" fill="url(#h3)" opacity=".5"/>
+  <!-- water -->
+  <rect x="0" y="690" width="1440" height="210" fill="url(#h3)" opacity=".55"/>
+  <!-- left cliff: dense hatch + village -->
+  <path d="M0 560 L 140 540 L 260 560 L 380 520 L 450 540 L 450 900 L 0 900Z" fill="url(#h1)"/>
+  <path d="M0 560 L 140 540 L 260 560 L 380 520 L 450 540 L 450 900 L 0 900Z" fill="url(#h2)" opacity=".7"/>
+  <path d="M0 560 L 140 540 L 260 560 L 380 520 L 450 540 L 450 900 L 0 900Z" fill="none" stroke="#1b1a18" stroke-width="1.5"/>
+  <g fill="#f7f5f0" stroke="#1b1a18" stroke-width="1.2">
+    <path d="M60 540 l40 -30 l40 30 v40 h-80z"/><path d="M160 530 l34 -26 l34 26 v36 h-68z"/><path d="M250 520 l30 -22 l30 22 v34 h-60z"/><path d="M330 500 l36 -28 l36 28 v40 h-72z"/>
+    <path d="M110 600 l44 -32 l44 32 v44 h-88z"/><path d="M220 590 l36 -26 l36 26 v40 h-72z"/>
+  </g>
+  <g fill="url(#h4)"><rect x="70" y="540" width="60" height="38"/><rect x="340" y="500" width="52" height="38"/><rect x="120" y="600" width="68" height="42"/></g>
+  <!-- right cliff: hatch + pagoda -->
+  <path d="M990 540 L 1100 500 L 1240 530 L 1340 490 L 1440 510 L 1440 900 L 990 900Z" fill="url(#h2)"/>
+  <path d="M990 540 L 1100 500 L 1240 530 L 1340 490 L 1440 510 L 1440 900 L 990 900Z" fill="url(#h1)" opacity=".6"/>
+  <path d="M990 540 L 1100 500 L 1240 530 L 1340 490 L 1440 510 L 1440 900 L 990 900Z" fill="none" stroke="#1b1a18" stroke-width="1.5"/>
+  <g fill="#f7f5f0" stroke="#1b1a18" stroke-width="1.2"><path d="M1320 490 l-36 -24 h72z"/><rect x="1298" y="466" width="44" height="8"/><path d="M1320 466 l-30 -20 h60z"/><rect x="1304" y="440" width="32" height="6"/><path d="M1320 440 l-24 -16 h48z"/><rect x="1316" y="400" width="8" height="24"/></g>
+  <!-- bridge: engraved arches -->
+  <g fill="none" stroke="#1b1a18" stroke-width="2">
+    <path d="M450 540 Q 720 520, 990 540" stroke-dasharray="3 7" opacity=".5"/>
+    <path d="M450 540 Q 540 528, 630 526"/><path d="M630 526 Q 700 523, 770 523"/>
+    <path class="seg" style="animation-delay:0s" d="M770 523 Q 840 523, 910 530"/>
+    <path class="seg" style="animation-delay:2s" d="M910 530 Q 950 534, 990 540"/>
+  </g>
+  <!-- arches under deck -->
+  <g fill="url(#h1)" stroke="#1b1a18" stroke-width="1.5">
+    <path d="M460 542 v150 h100 v-150 a50 50 0 0 0 -100 0z"/>
+    <path d="M580 532 v160 h110 v-160 a55 55 0 0 0 -110 0z"/>
+    <path class="fill" d="M710 526 v166 h110 v-166 a55 55 0 0 0 -110 0z"/>
+  </g>
+  <g fill="none" stroke="#1b1a18" stroke-width="1.5" stroke-dasharray="4 6" opacity=".5"><path d="M840 526 v166 h110 v-166 a55 55 0 0 0 -110 0z"/></g>
+  <!-- boat -->
+  <g fill="#f7f5f0" stroke="#1b1a18" stroke-width="1.2"><path d="M300 760 l50 0 l-8 12 l-34 0z"/><path d="M325 712 l0 48"/><path d="M325 712 l22 40 l-22 0z"/></g>
+</svg>
+
+<div class="legend"><span><i></i>Path built</span><span>Path built</span><span>Under construction</span></div>
+</body>
+</html>
