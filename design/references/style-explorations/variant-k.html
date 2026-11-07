@@ -82,7 +82,7 @@ function ledge(k) {
   const H = STEP * 2 + 90 + r() * 40;   // overlaps the next mass down on the same side before its base fades
   const body = [[xe + dir * 8, yTop + 30], [xe - dir * 6, yTop + 70], [xe - dir * 24, yTop + 140 + r() * 30], [xe - dir * 10, yTop + H * .55], [xe - dir * 70, yTop + H * .8], [xe - dir * 160, yTop + H], [back - dir * 60, yTop + H * .9], [back - dir * 90, yTop + H * .4], [back - dir * 40, yTop + 40]];
   const poly = top.concat(body);
-  const L = { k, left, yTop, xe, dir, back, edgeIn: [xe + dir * 2, yTop - 2], landing: [xe - dir * 62, yTop - 5], edgeOut: [xe - dir * 2, yTop - 2], top, poly, seed: k * 17 + 3 };
+  const L = { k, left, yTop, xe, dir, back, edgeIn: [xe + dir * 2, yTop - 2], landing: [xe - dir * 26, yTop - 4], edgeOut: [xe - dir * 2, yTop - 2], top, poly, seed: k * 17 + 3 };
   ledges.set(k, L); return L;
 }
 function bridge(k) {
@@ -106,7 +106,7 @@ const route = []; let routeLen = 0;
 function extendRoute(upToK) {
   while (route.length < upToK * 2 + 2) {
     const k = route.length >> 1, Lk = ledge(k);
-    if (route.length % 2 === 0) { const a = Lk.edgeIn, m = Lk.landing, b = Lk.edgeOut, l1 = Math.hypot(m[0] - a[0], m[1] - a[1]), l2 = Math.hypot(b[0] - m[0], b[1] - m[1]), len = l1 + l2; route.push({ kind: 'ledge', k, s0: routeLen, len, dir: Lk.left ? -1 : 1, fn: t => { const s = t * len; return s < l1 ? { x: lerp(a[0], m[0], s / l1), y: lerp(a[1], m[1], s / l1) } : { x: lerp(m[0], b[0], (s - l1) / l2), y: lerp(m[1], b[1], (s - l1) / l2) }; }, turnAt: l1 / len }); routeLen += len; }
+    if (route.length % 2 === 0) { const a = Lk.edgeIn, m = Lk.landing, b = Lk.edgeOut, l1 = Math.hypot(m[0] - a[0], m[1] - a[1]), l2 = Math.hypot(b[0] - m[0], b[1] - m[1]), len = l1 + l2; route.push({ kind: 'ledge', k, s0: routeLen, len, dir: Lk.dir, fn: t => { const s = t * len; return s < l1 ? { x: lerp(a[0], m[0], s / l1), y: lerp(a[1], m[1], s / l1) } : { x: lerp(m[0], b[0], (s - l1) / l2), y: lerp(m[1], b[1], (s - l1) / l2) }; }, turnAt: l1 / len }); routeLen += len; }
     else { const Bk = bridge(k); route.push({ kind: 'bridge', k, s0: routeLen, len: Bk.len, dir: Lk.left ? 1 : -1, fn: t => { const p = Bk.at(t * Bk.len); return { x: p.x, y: p.y - 2 }; } }); routeLen += Bk.len; }
   }
 }
