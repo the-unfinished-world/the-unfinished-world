@@ -26,6 +26,10 @@ See or export everyone: https://supabase.com/dashboard/project/pzzivuxhfpaiucbfq
 
 ## Turning on Google and GitHub (one-time, account owner)
 
+Status (2026-11-08): the Google Cloud project `tuw-collective` (published to production, with the site's privacy page)
+and the GitHub OAuth app "The Unfinished World" (owned by the org) exist. What remains is pasting each client ID and
+secret into the Supabase providers page.
+
 Until a provider is switched on, the dialog says "Sign-in opens soon." The buttons appear by themselves once it is.
 Callback URL for both:
 
