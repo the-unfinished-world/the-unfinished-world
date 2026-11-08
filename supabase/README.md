@@ -9,9 +9,9 @@ The site is static (GitHub Pages). Everything member-related goes from the brows
 
 ## How it works
 
-- **Joining requires signing in with Google or GitHub.** Email, phone and anonymous sign-in are switched off.
+- **Joining requires signing in with Google.** GitHub, email, phone and anonymous sign-in are switched off.
 - After signing in, people fill in name, what they do, interests, a few words about themselves, and a picture.
-  The picture is either an ink figure (man or woman) or a photo: their Google or GitHub photo, or an upload.
+  The picture is either an ink figure (man or woman) or a photo: their Google photo, or an upload.
   They can come back and edit any of it.
 - **"Show me on the People page"** is off by default. Only people who tick it appear, and emails are never shown.
 - **The People view** opens by clicking the walker in the scene (the cursor changes over it) or from `#people`.
@@ -19,16 +19,18 @@ The site is static (GitHub Pages). Everything member-related goes from the brows
 - The database only exposes three functions: `my_profile()` and `save_profile(...)` for the signed-in person, and
   `people()` for everyone. The `members` table itself is closed. Photos live in the public `avatars` bucket, and
   each person can write only to a folder named after their own account.
-- Earlier form sign-ups (before sign-in existed) are kept. When that person signs in with a Google or GitHub account
+- Earlier form sign-ups (before sign-in existed) are kept. When that person signs in with a Google account
   that has the same email, their entry is picked up automatically.
 
 See or export everyone: https://supabase.com/dashboard/project/pzzivuxhfpaiucbfqypw/editor (table `members`).
 
 ## Turning on Google and GitHub (one-time, account owner)
 
-Status (2026-11-08): the Google Cloud project `tuw-collective` (published to production, with the site's privacy page)
-and the GitHub OAuth app "The Unfinished World" (owned by the org) exist. What remains is pasting each client ID and
-secret into the Supabase providers page.
+Status (2026-11-08): Google sign-in is live (Google Cloud project `tuw-collective`, published to production, with the
+site's privacy page). GitHub sign-in is switched off for now: the org's OAuth app "The Unfinished World" exists, but its
+client secret was exposed and must be replaced first. To bring GitHub back: delete the old secret on GitHub, generate a
+new one, add `['github', 'GitHub']` back to PROVIDERS in members.js, and run
+`bash ~/.config/tuw/set-provider.sh github <Ov23… client id>` with the new secret on the clipboard.
 
 Until a provider is switched on, the dialog says "Sign-in opens soon." The buttons appear by themselves once it is.
 Callback URL for both:

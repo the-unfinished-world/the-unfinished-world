@@ -1,10 +1,10 @@
-// Members: sign in with Google or GitHub, then a small profile (name, work, interests, bio, picture, listed or not).
+// Members: sign in with Google, then a small profile (name, work, interests, bio, picture, listed or not).
 // The People view replaces the left column; it opens from the walker in the scene or from #people.
 // All data goes through Supabase functions: my_profile, save_profile, people (see supabase/*.sql).
 (function () {
   const URL_ = 'https://pzzivuxhfpaiucbfqypw.supabase.co';
   const KEY = 'sb_publishable_wDp2THeQsaJSkjkUwMRbJw_A-OmMO8e';                       // publishable key: safe in the browser by design
-  const PROVIDERS = [['google', 'Google'], ['github', 'GitHub']];
+  const PROVIDERS = [['google', 'Google']];
   const $ = id => document.getElementById(id);
   const dlg = $('joinDialog'), form = $('profileForm'), status = $('joinStatus'), signin = $('signinBox'), oauth = $('joinOauth');
   const title = $('joinTitle'), who = $('whoami'), preview = $('picPreview'), fileIn = $('picUpload'), usePhoto = $('usePhoto');
