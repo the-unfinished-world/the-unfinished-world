@@ -130,7 +130,8 @@ window.Bridges = (function () {
       // the deck is 6px above the top tier at the cliff line; place the stacks accordingly
       const lowP = P0, highP = P2, under = 6;
       // each stack's top tier sits just under the deck where the deck passes over its outermost tip
-      const topL = at(PROJ[NT - 1]).y + under - lowP.y, topU = at(len - PROJ[NT - 1]).y + under - highP.y;
+      // lower stack rests on its ledge (top tier at the lip); upper stack hangs at most 40px under the lip
+      const topL = under, topU = Math.min(40, at(len - PROJ[NT - 1]).y + under - highP.y);
       const tipsL = stack(lowP, dir, 170, topL), tipsU = stack(highP, -dir, 16, topU);
       const baseL = lowP.y + topL + PITCH * (NT - 1) + T, baseU = highP.y + topU + PITCH * (NT - 1) + T;
       // lower tails: stone cairn on the beams
@@ -144,8 +145,10 @@ window.Bridges = (function () {
       // deck line = the path curve. Stringers from tipL to tipU under the deck.
       const sL = PROJ[NT - 1] / len, sU = 1 - PROJ[NT - 1] / len;
       for (let i = 0; i < 3; i++) { const o = (i - 1) * 7; const pa = at(sL * len), pb = at(sU * len); push(member({ x: pa.x, y: pa.y + 5 + o * .3 }, { x: pb.x, y: pb.y + 5 + o * .3 }, 'chord', 4, TIMB, { u: -.02 + .01 * i })); }
-      // a short post from each stack's top tier tip up to the deck underside (the deck climbs above the horizontal tiers)
-      for (const [tips, s] of [[tipsL, sL], [tipsU, sU]]) { const p = at(s * len); if (p.y + 4 < tips[NT - 1].y - 2) push(member({ x: tips[NT - 1].x, y: tips[NT - 1].y }, { x: p.x, y: p.y + 4 }, 'vert', 4, TIMB, { u: -.03 })); }
+      // posts from the top-tier tip and from mid-stack up to the deck underside, so each stack carries the deck at two points
+      const postUp = (x, yTop) => { let s = 0, best = 0, bd = 1e9; for (s = 0; s <= len; s += 2) { const p = at(s); const dd = Math.abs(p.x - x); if (dd < bd) { bd = dd; best = s; } } const p = at(best); if (p.y + 4 < yTop - 2) push(member({ x, y: yTop }, { x, y: p.y + 4 }, 'vert', 4, TIMB, { u: -.03 })); };
+      postUp(tipsL[NT - 1].x, tipsL[NT - 1].y); postUp(lowP.x + dir * PROJ[1], tipsL[NT - 1].y);
+      postUp(tipsU[NT - 1].x, tipsU[NT - 1].y); postUp(highP.x - dir * PROJ[1], tipsU[NT - 1].y);
       for (let s = 0; s < len; s += 5) { const p = at(s); push({ s, kind: 'deck', x: p.x, y: p.y, w: 5.6, h: DECK_W * PERP, rot: p.ang, color: DECK, a: .9, order: .5, still: true }); if (r() > .1) push({ s, kind: 'plank', x: p.x, y: p.y, w: 2, h: DECK_W * PERP, rot: p.ang, color: PLANK, order: .6 }); }
       for (let s = 6; s < len; s += 12) { const p = at(s); push({ s, kind: 'cleat', x: p.x - p.nx * 1.5, y: p.y - p.ny * 1.5, w: 2.2, h: DECK_W * PERP * .9, rot: p.ang, color: DARK, order: .7 }); }
       for (let s = 10; s < len; s += 36) { const p = at(s), q = at(Math.min(len, s + 36)); for (const side of [-1, 1]) { const px = p.x + p.nx * side * halfW, py = p.y + p.ny * side * halfW, qx = q.x + q.nx * side * halfW, qy = q.y + q.ny * side * halfW; push({ s, kind: 'post', x: px, y: py - 11, w: 2.5, h: 24, rot: 0, color: INK, u: s / len + .012, front: side > 0 }); push(Object.assign(member({ x: px, y: py - 22 }, { x: qx, y: qy - 22 }, 'rail', 1.5, INK), { u: s / len + .02, a: .75, front: side > 0 })); } }
