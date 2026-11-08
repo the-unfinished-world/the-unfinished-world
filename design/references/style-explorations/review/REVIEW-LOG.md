@@ -115,3 +115,7 @@ Cantilever: reviewer D scored the first rebuild 3/10 ("sticks"); rebuilt per its
 tiers (36/66/96/126px), sleepers, stone cairn on the lower tails, socket line on the upper cliff, knee struts,
 posts from tier tips up to the climbing deck, three stringers between tips. Reviewer E pending.
 Copy: AI-era paragraph added after the "different question" clump; highlight on "the frontier of what is possible".
+Reviewer E on the stacked cantilever: 5/10 (from 3); found the lower stack floating above its ledge because it was
+placed relative to the climbing deck. Fixed: lower stack seated at the lip, upper stack capped 40px under its lip,
+two posts per stack from tier tips up to the deck. Walker gait softened per Nikhil (bob halved, pelvis eased, gentler
+knee and foot curves, slower brush shimmer). Nikhil: good enough, pushed.
