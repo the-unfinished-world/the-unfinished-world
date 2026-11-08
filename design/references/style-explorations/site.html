@@ -19,8 +19,27 @@ canvas.scene{position:fixed;inset:0;width:100%;height:100%;z-index:2}
 .copy{position:relative;z-index:5;max-width:420px;margin-left:56px;padding:98px 0 40vh}
 .copy p{margin:0 0 .55em}
 .copy a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--ink)}
-.join{display:inline-block;margin:0 0 1.15em;padding:.3em .95em .36em;border:1px solid var(--ink);border-radius:0;color:var(--ink);text-decoration:none}
+.join{display:inline-block;margin:0 0 1.15em;padding:.3em .95em .36em;border:1px solid var(--ink);border-radius:0;color:var(--ink);text-decoration:none;font:inherit;background:none;cursor:pointer}
 .join:hover{background:var(--ink);color:var(--paper)}
+dialog.joinbox{margin:auto;width:min(460px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;padding:30px 32px 26px;border:1px solid var(--ink);border-radius:0;background:var(--paper);color:var(--ink);font:inherit}
+dialog.joinbox::backdrop{background:rgba(241,237,228,.72);backdrop-filter:blur(2px)}
+.joinbox h2{font:inherit;font-style:italic;margin:0 0 .7em}
+.joinbox .x{position:absolute;right:14px;top:10px;border:0;background:none;font:inherit;color:var(--ink);cursor:pointer;opacity:.6;padding:4px 8px}
+.joinbox .x:hover{opacity:1}
+.joinbox .oauth{display:block;width:100%;margin:0 0 .45em;padding:.32em .8em;border:1px solid var(--ink);border-radius:0;background:none;color:var(--ink);font:inherit;cursor:pointer;text-align:left}
+.joinbox .oauth:hover{background:var(--ink);color:var(--paper)}
+.joinbox .or{margin:.5em 0 .3em;opacity:.6}
+.joinbox label{display:block;margin:.55em 0 0}
+.joinbox input,.joinbox textarea{display:block;width:100%;margin-top:.1em;padding:.2em 0;border:0;border-bottom:1px solid rgba(28,26,23,.45);border-radius:0;background:transparent;color:var(--ink);font:inherit;outline:none}
+.joinbox textarea{resize:vertical;min-height:4.6em;border:1px solid rgba(28,26,23,.3);padding:.3em .4em;margin-top:.25em}
+.joinbox input:focus,.joinbox textarea:focus{border-color:var(--ink)}
+.joinbox input[readonly]{opacity:.7}
+.joinbox .hint{opacity:.6}
+.joinbox button[type=submit]{margin-top:1em}
+.joinbox button[disabled]{opacity:.5;cursor:default}
+.joinbox .status{min-height:1.5em;margin-top:.6em}
+.joinbox .status[data-kind=err]{color:#8a2f25}
+.joinbox form.done label,.joinbox form.done button[type=submit],.joinbox form.done .oauthwrap{display:none}
 .k{font-style:normal;background:linear-gradient(transparent 22%,rgba(239,199,195,.5) 22%,rgba(239,199,195,.5) 96%,transparent 96%);padding:0 .12em;margin:0 -.1em;border-radius:2px 5px 3px 6px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
 .space{height:1.05em}
 .cue{position:fixed;left:56px;bottom:28px;z-index:7;opacity:.55;transition:opacity .4s}
@@ -39,7 +58,7 @@ canvas.scene{position:fixed;inset:0;width:100%;height:100%;z-index:2}
 <div id="dbg" hidden></div>
 
 <main class="copy">
-  <a class="join" href="#join">Join the Collective</a>
+  <a class="join" href="#join" data-join>Join the Collective</a>
   <p>A collective of <em class="k">interdisciplinary thinkers and builders</em> questioning the boundaries of what is possible.</p>
   <div class="space"></div>
   <p>Some of humanity’s most consequential problems offer no clear path to financial return. Their benefits are widely shared, their timelines uncertain, their solutions a poor fit for existing institutions. So they stay underexplored.</p>
@@ -50,14 +69,29 @@ canvas.scene{position:fixed;inset:0;width:100%;height:100%;z-index:2}
   <p>So we bring people together across fields. We read together and run member-led sessions. We workshop questions and talk through frontier technology. We spend work days making things: writing, experiments, projects. Promising ideas get help on their way to research and practice.</p>
   <div class="space"></div>
   <p>We look for curiosity, intellectual humility, depth, generosity, imagination, and public purpose. Questions are welcome before they are well formed. Disagreement deepens understanding. <em class="k">Everyone teaches and everyone learns.</em></p>
-  <p id="join">We want a world in which our collective knowledge and imagination help humanity pursue <em class="k">possibilities whose value exceeds their immediate financial return</em>. If that sounds like you, <a href="mailto:hello@theunfinishedworld.org">join the collective</a>.</p>
+  <p id="join">We want a world in which our collective knowledge and imagination help humanity pursue <em class="k">possibilities whose value exceeds their immediate financial return</em>. If that sounds like you, <a href="#join" data-join>join the collective</a>.</p>
 </main>
+
+<dialog class="joinbox" id="joinDialog" aria-labelledby="joinTitle">
+  <button class="x" id="joinClose" type="button" aria-label="Close">×</button>
+  <h2 id="joinTitle">Join the Collective</h2>
+  <form id="joinForm" novalidate>
+    <div class="oauthwrap"><div id="joinOauth" hidden></div><p class="or" id="joinOr" hidden>or</p></div>
+    <label>Name<input name="name" autocomplete="name" required maxlength="120"></label>
+    <label>Email<input name="email" type="email" autocomplete="email" required maxlength="254"></label>
+    <label>A few words about you <span class="hint">and what you are drawn to. Optional; you can add more later.</span><textarea name="bio" maxlength="2000" rows="3"></textarea></label>
+    <button class="join" type="submit">Join</button>
+    <p class="status" id="joinStatus" role="status" aria-live="polite"></p>
+  </form>
+</dialog>
 
 <script src="ink.js"></script>
 <script src="bridges.js"></script>
 <script src="walker7.js"></script>
 <script src="walker8.js"></script>
 <script src="brushfigure.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="join.js" defer></script>
 <script>
 const { rng, roughen, smooth, pathOf, bbox, wash, contour, cun, dots, pine, mist, fadeBase, rock, INK } = Ink;
 const PAPER = '#f1ede4';
