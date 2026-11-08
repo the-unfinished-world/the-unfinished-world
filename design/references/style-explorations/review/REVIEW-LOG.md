@@ -131,4 +131,6 @@ verticals, hangers plumb; shared deckRun/railRun builders used by every type.
 - v2 (fresh reviewer, all four): cross-bridge 8/10, width vector measured identical on all; rope 8, truss 7, pier 6,
   cantilever 6. Fixed: sloped trestle bolster with legs fitted to it, cantilever struts seated in rock, truss top chord
   lowered to handrail height, landings built right after the last deck board (they looked ghosted mid-span).
-- v3: final fresh check pending.
+- v3 (fresh reviewer): cross-bridge 9/10, "consistent, ship it"; rope 9, truss 8, pier 9, cantilever 8. Applied its
+  optional fixes: cantilever upper beam roots end at the cliff face and strut foot pulled in; deck-to-landing seam closed.
+  Declined: the faint truss landing in that still is construction in progress, not a layering fault.

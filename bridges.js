@@ -80,7 +80,7 @@ window.Bridges = (function () {
     const push = (sl) => { if (sl.u == null) sl.u = (sl.s == null ? 0 : sl.s / len) + r() * .012; const ang = -Math.PI * .55 + (r() - .5) * 1.2, dist = 60 + r() * 30; sl.sx = sl.still ? sl.x : sl.fromBelow ? sl.x : sl.x + Math.cos(ang) * dist * (r() < .5 ? -1 : 1); sl.sy = sl.still ? sl.y : sl.fromBelow ? sl.y + sl.h * .5 : sl.y + Math.abs(Math.sin(ang)) * dist; sl.mx = (sl.sx + sl.x) / 2 + (r() - .5) * 20; sl.my = Math.min(sl.sy, sl.y) - 12; sl.dur = .4 + r() * .2; sl.rot0 = sl.still ? 0 : (r() - .5) * .5; sl.a = sl.a || 1; slots.push(sl); };
     // deck boards across the walkway (sheared to DEPTH), optional cleats; s0/s1 limit the run; uOff shifts build time
     const deckRun = (Cv, opts) => { opts = opts || {}; const L = Cv.len;
-      for (let s = 0; s < L; s += 5) { const p = Cv.at(s), u = opts.u ? opts.u(s) : undefined;
+      for (let s = 0; s < L + 2.5; s += 5) { s = Math.min(s, L); const p = Cv.at(s), u = opts.u ? opts.u(s) : undefined;
         push({ s, u, kind: 'deck', x: p.x, y: p.y, w: 5.6, h: 2 * DL, rot: p.ang, shear: DU, color: DECK, a: .9, order: .5, still: true });
         if (r() > .1) push({ s, u: u == null ? undefined : u + .004, kind: 'plank', x: p.x, y: p.y, w: 2, h: 2 * DL, rot: p.ang, shear: DU, color: PLANK, order: .6 }); }
       if (opts.cleats) for (let s = 6; s < L; s += 12) { const p = Cv.at(s); push({ s, kind: 'cleat', x: p.x, y: p.y, w: 2.2, h: 2 * DL * .9, rot: p.ang, shear: DU, color: DARK, order: .7 }); } };
@@ -159,12 +159,12 @@ window.Bridges = (function () {
       };
       const lowP = P0, highP = P2;
       const topL = D0, topU = Math.min(40 + D0, at(len - PROJ[NT - 1]).y + D0 - highP.y);
-      const tipsL = stack(lowP, dir, 170, topL), tipsU = stack(highP, -dir, 16, topU);
+      const tipsL = stack(lowP, dir, 170, topL), tipsU = stack(highP, -dir, 2, topU);   // upper roots end at the face
       const baseL = lowP.y + topL + PITCH * (NT - 1) + T, baseU = highP.y + topU + PITCH * (NT - 1) + T;
       for (let q = 0; q < 12; q++) { const cx = lowP.x - dir * (26 + (q % 6) * 22 + (q >= 6 ? 11 : 0)), cy = lowP.y + topL - 3 + (q >= 6 ? -9 : 0); push({ kind: 'stone', x: cx + (r() - .5) * 4, y: cy, w: 12 + r() * 5, h: 9 + r() * 3, rot: (r() - .5) * .5, color: '#3a3733', u: -.05 + .004 * q }); }
       push({ kind: 'abut', x: highP.x + dir * 8, y: highP.y + topU + PITCH * (NT - 1) / 2 + 2, w: 4, h: PITCH * NT + 2, rot: 0, color: INK, u: -.1 });
       push(member({ x: lowP.x - dir * 30, y: baseL + 50 }, { x: lowP.x + dir * PROJ[2] * .85, y: tipsL[2].y + T }, 'brace', 5, TIMB, { u: -.04 }));
-      push(member({ x: highP.x + dir * 30, y: baseU + 50 }, { x: highP.x - dir * PROJ[2] * .85, y: tipsU[2].y + T }, 'brace', 5, TIMB, { u: -.04 }));
+      push(member({ x: highP.x + dir * 18, y: baseU + 50 }, { x: highP.x - dir * PROJ[2] * .85, y: tipsU[2].y + T }, 'brace', 5, TIMB, { u: -.04 }));
       // stringers along the deck's near-edge underside, full length
       for (let i = 0; i < 2; i++) for (const pc of run(C, 'chord', 4, TIMB, 20)) { const u0 = underNear(at(pc.s), 3 + i * 4); push(Object.assign(pc, { x: pc.x - DEPTH.x, y: pc.y - DEPTH.y + 3 + i * 4, u: pc.s / len - .03 + .005 * i })); }
       // posts from the tiers up to the near-edge underside: at each stack's tip and mid-stack
@@ -196,7 +196,7 @@ window.Bridges = (function () {
       railRun(C, [46, 26]);
     }
     if (o.landing) { const L = o.landing, n = Math.max(2, Math.round(Math.hypot(L.x - P2.x, L.y - P2.y) / 5)), ang = Math.atan2(L.y - P2.y, L.x - P2.x);
-      for (let i = 1; i <= n; i++) { const t = i / n, x = lerp(P2.x, L.x, t), y = lerp(P2.y, L.y, t); push({ kind: 'deck', x, y, w: 5.6, h: 2 * DL, rot: ang, shear: DU, color: DECK, a: .9, order: .5, still: true, u: .97 + .03 * t }); if (r() > .1) push({ kind: 'plank', x, y, w: 2, h: 2 * DL, rot: ang, shear: DU, color: PLANK, u: .97 + .03 * t + .005 }); } }
+      for (let i = 0; i <= n; i++) { const t = i / n, x = lerp(P2.x, L.x, t), y = lerp(P2.y, L.y, t); push({ kind: 'deck', x, y, w: 5.6, h: 2 * DL, rot: ang, shear: DU, color: DECK, a: .9, order: .5, still: true, u: .97 + .03 * t }); if (r() > .1) push({ kind: 'plank', x, y, w: 2, h: 2 * DL, rot: ang, shear: DU, color: PLANK, u: .97 + .03 * t + .005 }); } }
     slots.sort((a, b) => a.u - b.u);
     return { k: o.k, type, P0, P1, P2, len, at, slots, pinnacles };
   }
