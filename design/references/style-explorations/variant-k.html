@@ -107,7 +107,7 @@ function extendRoute(upToK) {
   while (route.length < upToK * 2 + 2) {
     const k = route.length >> 1, Lk = ledge(k);
     if (route.length % 2 === 0) { const a = Lk.edgeIn, m = Lk.landing, b = Lk.edgeOut, l1 = Math.hypot(m[0] - a[0], m[1] - a[1]), l2 = Math.hypot(b[0] - m[0], b[1] - m[1]), len = l1 + l2; route.push({ kind: 'ledge', k, s0: routeLen, len, dir: Lk.dir, fn: t => { const s = t * len; return s < l1 ? { x: lerp(a[0], m[0], s / l1), y: lerp(a[1], m[1], s / l1) } : { x: lerp(m[0], b[0], (s - l1) / l2), y: lerp(m[1], b[1], (s - l1) / l2) }; }, turnAt: l1 / len }); routeLen += len; }
-    else { const Bk = bridge(k); route.push({ kind: 'bridge', k, s0: routeLen, len: Bk.len, dir: Lk.left ? 1 : -1, fn: t => { const p = Bk.at(t * Bk.len); return { x: p.x, y: p.y - 2 }; } }); routeLen += Bk.len; }
+    else { const Bk = bridge(k); route.push({ kind: 'bridge', k, s0: routeLen, len: Bk.len, dir: Lk.left ? 1 : -1, fn: t => { const p = Bk.at(t * Bk.len); return { x: p.x, y: p.y }; } }); routeLen += Bk.len; }
   }
 }
 function walkerAt(dist) { extendRoute(Math.floor(dist / 450) + 3); let seg = route[0]; for (const s of route) { if (dist >= s.s0) seg = s; else break; } const t = Math.min(1, (dist - seg.s0) / seg.len); const a = seg.fn(Math.max(0, t - .01)), b = seg.fn(Math.min(1, t + .01)); const slope = seg.kind === 'bridge' ? Math.atan2(-(b.y - a.y), Math.abs(b.x - a.x) || 1) : 0; return Object.assign(seg.fn(t), { seg, t, slope }); }

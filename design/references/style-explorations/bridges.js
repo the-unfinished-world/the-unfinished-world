@@ -130,7 +130,7 @@ window.Bridges = (function () {
     else if (type === 'truss') {
       // timber Howe truss: a truss plane on each deck edge, plumb verticals, top chords at handrail height,
       // diagonals leaning toward mid-span; transverse abutment sills at both lips, a thrust block at the low end.
-      const H = 46;
+      const H = 41;
       for (const [P, back] of [[P0, -dir], [P2, dir]]) { const base = { x: P.x + back * 8, y: P.y + 4 }; push(Object.assign(member(nearPt(base, 1.15), farPt(base, 1.15), 'abut', 8, DARK), { u: -.1 })); }
       const low = P0.y > P2.y ? P0 : P2, lowSide = low === P0 ? -dir : dir, lowN = nearPt(low);
       push({ kind: 'abut', x: lowN.x + lowSide * 20, y: lowN.y - 2, w: 10, h: 12, rot: 0, color: DARK, u: -.1 });
@@ -163,8 +163,8 @@ window.Bridges = (function () {
       const baseL = lowP.y + topL + PITCH * (NT - 1) + T, baseU = highP.y + topU + PITCH * (NT - 1) + T;
       for (let q = 0; q < 12; q++) { const cx = lowP.x - dir * (26 + (q % 6) * 22 + (q >= 6 ? 11 : 0)), cy = lowP.y + topL - 3 + (q >= 6 ? -9 : 0); push({ kind: 'stone', x: cx + (r() - .5) * 4, y: cy, w: 12 + r() * 5, h: 9 + r() * 3, rot: (r() - .5) * .5, color: '#3a3733', u: -.05 + .004 * q }); }
       push({ kind: 'abut', x: highP.x + dir * 8, y: highP.y + topU + PITCH * (NT - 1) / 2 + 2, w: 4, h: PITCH * NT + 2, rot: 0, color: INK, u: -.1 });
-      push(member({ x: lowP.x - dir * 6, y: baseL + 50 }, { x: lowP.x + dir * PROJ[2] * .85, y: tipsL[2].y + T }, 'brace', 5, TIMB, { u: -.04 }));
-      push(member({ x: highP.x + dir * 6, y: baseU + 50 }, { x: highP.x - dir * PROJ[2] * .85, y: tipsU[2].y + T }, 'brace', 5, TIMB, { u: -.04 }));
+      push(member({ x: lowP.x - dir * 30, y: baseL + 50 }, { x: lowP.x + dir * PROJ[2] * .85, y: tipsL[2].y + T }, 'brace', 5, TIMB, { u: -.04 }));
+      push(member({ x: highP.x + dir * 30, y: baseU + 50 }, { x: highP.x - dir * PROJ[2] * .85, y: tipsU[2].y + T }, 'brace', 5, TIMB, { u: -.04 }));
       // stringers along the deck's near-edge underside, full length
       for (let i = 0; i < 2; i++) for (const pc of run(C, 'chord', 4, TIMB, 20)) { const u0 = underNear(at(pc.s), 3 + i * 4); push(Object.assign(pc, { x: pc.x - DEPTH.x, y: pc.y - DEPTH.y + 3 + i * 4, u: pc.s / len - .03 + .005 * i })); }
       // posts from the tiers up to the near-edge underside: at each stack's tip and mid-stack
@@ -177,13 +177,15 @@ window.Bridges = (function () {
     else { // pier: trestles on rock pinnacles
       const n = span > 300 ? 2 : 1;
       for (let i = 0; i < n; i++) {
-        const s = len * (n === 1 ? .5 : .33 + .34 * i), p = at(s), H = 54 + r() * 24;
-        const q = nearPt(p); pinnacles.push({ x: q.x, yTop: q.y + H + 6, w: 46, seed: seed * 3 + i });
-        push({ kind: 'cap', x: q.x, y: q.y + 8, w: 28, h: 3.5, rot: 0, color: DARK, s, u: s / len - .05 });
-        for (const side of [-1, 1]) push({ kind: 'leg', x: q.x + side * 9, y: q.y + 9 + H / 2, w: 3, h: H - 2, rot: 0, color: DARK, s, u: s / len - .06, fromBelow: true });
-        push({ kind: 'brace', x: q.x, y: q.y + H * .5, w: 1.5, h: Math.min(30, H * .8), rot: .62, color: DARK, s, u: s / len - .055 });
-        push({ kind: 'brace', x: q.x, y: q.y + H * .5, w: 1.5, h: Math.min(30, H * .8), rot: -.62, color: DARK, s, u: s / len - .055 });
-        push({ kind: 'foot', x: q.x, y: q.y + H + 8, w: 28, h: 3.5, rot: 0, color: DARK, s, u: s / len - .07 });
+        const s = len * (n === 1 ? .5 : .33 + .34 * i), p = at(s), H = 54 + r() * 24, q = nearPt(p), tA = Math.tan(p.ang);
+        const capY = q.y + 6, footY = q.y + H + 8;
+        pinnacles.push({ x: q.x, yTop: footY - 2, w: 46, seed: seed * 3 + i });
+        push({ kind: 'cap', x: q.x, y: capY, w: 28, h: 3.5, rot: p.ang, color: DARK, s, u: s / len - .05 });          // bolster follows the deck underside
+        for (const side of [-1, 1]) { const lx = q.x + side * 9, top = capY + side * 9 * tA + 1.5; push({ kind: 'leg', x: lx, y: (top + footY) / 2, w: 3, h: footY - top, rot: 0, color: DARK, s, u: s / len - .06, fromBelow: true }); }
+        const midY = (capY + footY) / 2;
+        push({ kind: 'brace', x: q.x, y: midY, w: 1.5, h: Math.min(30, H * .8), rot: .62, color: DARK, s, u: s / len - .055 });
+        push({ kind: 'brace', x: q.x, y: midY, w: 1.5, h: Math.min(30, H * .8), rot: -.62, color: DARK, s, u: s / len - .055 });
+        push({ kind: 'foot', x: q.x, y: footY, w: 28, h: 3.5, rot: 0, color: DARK, s, u: s / len - .07 });
       }
       // short end trestles on the ledges
       { const base = { x: P0.x - dir * 9, y: P0.y + 4 }; push(Object.assign(member(nearPt(base, 1.15), farPt(base, 1.15), 'abut', 8, DARK), { u: -.1 })); }    // sill on the lower lip
@@ -194,7 +196,7 @@ window.Bridges = (function () {
       railRun(C, [46, 26]);
     }
     if (o.landing) { const L = o.landing, n = Math.max(2, Math.round(Math.hypot(L.x - P2.x, L.y - P2.y) / 5)), ang = Math.atan2(L.y - P2.y, L.x - P2.x);
-      for (let i = 1; i <= n; i++) { const t = i / n, x = lerp(P2.x, L.x, t), y = lerp(P2.y, L.y, t); push({ kind: 'deck', x, y, w: 5.6, h: 2 * DL, rot: ang, shear: DU, color: DECK, a: .9, order: .5, still: true, u: 1 + .08 * t }); if (r() > .1) push({ kind: 'plank', x, y, w: 2, h: 2 * DL, rot: ang, shear: DU, color: PLANK, u: 1 + .08 * t + .005 }); } }
+      for (let i = 1; i <= n; i++) { const t = i / n, x = lerp(P2.x, L.x, t), y = lerp(P2.y, L.y, t); push({ kind: 'deck', x, y, w: 5.6, h: 2 * DL, rot: ang, shear: DU, color: DECK, a: .9, order: .5, still: true, u: .97 + .03 * t }); if (r() > .1) push({ kind: 'plank', x, y, w: 2, h: 2 * DL, rot: ang, shear: DU, color: PLANK, u: .97 + .03 * t + .005 }); } }
     slots.sort((a, b) => a.u - b.u);
     return { k: o.k, type, P0, P1, P2, len, at, slots, pinnacles };
   }
