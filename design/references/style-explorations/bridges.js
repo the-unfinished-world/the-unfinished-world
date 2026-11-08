@@ -26,6 +26,8 @@ window.Bridges = (function () {
       const along = w >= hh, L = along ? w : hh, T = along ? hh : w;
       const segs = Math.max(4, Math.floor(L / 4)); o.strokeStyle = sl.color; o.lineCap = 'round';
       for (let i = 0; i < segs; i++) { const t0 = i / segs, t1 = (i + 1) / segs; o.lineWidth = T * lerp(.6, 1.4, vnoise(i * .9, 5)); o.globalAlpha = lerp(.6, 1, vnoise(i * .7 + 20, 6)); if (sl.kind === 'rail' && r() < .05) continue; o.beginPath(); if (along) { o.moveTo(w * t0, hh / 2 + (r() - .5) * .4); o.lineTo(w * t1, hh / 2 + (r() - .5) * .4); } else { o.moveTo(w / 2 + (r() - .5) * .4, hh * t0); o.lineTo(w / 2 + (r() - .5) * .4, hh * t1); } o.stroke(); }
+    } else if (sl.kind === 'stone') {
+      o.fillStyle = sl.color; o.globalAlpha = .92; o.beginPath(); o.ellipse(w / 2, hh / 2, w / 2, hh / 2, 0, 0, Math.PI * 2); o.fill(); o.globalAlpha = .35; o.fillStyle = '#f1ede4'; o.beginPath(); o.ellipse(w * .4, hh * .35, w * .22, hh * .18, 0, 0, Math.PI * 2); o.fill();
     } else {
       const amp = Math.min(1.1, short * .35 + .15);
       const pts = roughen([[0, 0], [w, 0], [w, hh], [0, hh]], Math.round(w * 3 + hh * 5), amp, 2.5);
@@ -112,23 +114,38 @@ window.Bridges = (function () {
       for (let s = 10; s < len; s += 36) { const a = at(s), b = at(Math.min(len, s + 36)); push(Object.assign(member({ x: a.x + a.nx * halfW, y: a.y + a.ny * halfW - 20 }, { x: b.x + b.nx * halfW, y: b.y + b.ny * halfW - 20 }, 'rail', 1.4, INK), { s: s + 18, u: s / len + .03, a: .75, front: true })); if (s % 72 === 10) push({ s, kind: 'post', x: a.x + a.nx * halfW, y: a.y + a.ny * halfW - 10, w: 2.4, h: 22, rot: 0, color: INK, u: s / len + .025, front: true }); }
     }
     else if (type === 'cantilever') {
-      // Timber cantilever (Bhutan / Tibet type, inclined to follow the climb): from each cliff, tiers of beams stacked
-      // under the deck line, each projecting further than the one below; tails anchored on the ledge under piled
-      // stones (lower end) or set into the cliff face (upper end); a knee brace from the cliff to the top tier;
-      // the deck stringers span the gap between the two cantilever tips. Nothing stands in the chasm.
-      const a0 = at(0).ang, aL = at(len).ang;
-      const ext = (s, dy) => { if (s < 0) { const p = at(0); return { x: p.x + Math.cos(a0) * s, y: p.y + Math.sin(a0) * s + dy }; } if (s > len) { const p = at(len); return { x: p.x + Math.cos(aL) * (s - len), y: p.y + Math.sin(aL) * (s - len) + dy }; } const p = at(s); return { x: p.x, y: p.y + dy }; };
-      const tiersL = [58, 100, 142, 184], tiersU = [50, 92, 134];
-      const tailL = 64, tailU = 22, tierGap = 7;
-      tiersL.forEach((proj, j) => { const dy = 4 + tierGap * (tiersL.length - j); push(member(ext(-tailL + 10 * j, dy), ext(proj, dy), 'chord', 5, TIMB, { u: -.1 + .015 * j })); });
-      // weighting stones on the lower tails, resting on the top tier over the ledge
-      for (let q = 0; q < 4; q++) { const p = ext(-tailL + 14 + 11 * q, 4 + tierGap); push({ kind: 'abut', x: p.x, y: p.y - 7, w: 9, h: 8, rot: 0, color: DARK, u: -.04 }); }
-      tiersU.forEach((proj, j) => { const dy = 4 + tierGap * (tiersU.length - j); push(member(ext(len - proj, dy), ext(len + tailU - 6 * j, dy), 'chord', 4.5, TIMB, { u: -.09 + .015 * j })); });
-      // knee braces: from the cliff face below each lip to the tip of the second-highest tier
-      { const tip = ext(tiersL[2], 4 + tierGap * 2), foot = { x: P0.x - dir * 6, y: P0.y + 46 }; push(member(foot, tip, 'brace', 2.8, TIMB, { u: -.03 })); }
-      { const tip = ext(len - tiersU[1], 4 + tierGap * 2), foot = { x: P2.x + dir * 6, y: P2.y + 44 }; push(member(foot, tip, 'brace', 2.8, TIMB, { u: -.03 })); }
-      // stringers under the full deck, deck, cleats, posts and rails
-      for (const pc of run(C, 'chord', 4, TIMB, 20)) push(Object.assign(pc, { y: pc.y + 4, u: pc.s / len - .03 }));
+      // Bhutanese bazam: from each cliff, 4 beams stacked in contact, each projecting further than the one below,
+      // all horizontal from the cliff line; tails lie on the lower ledge under a stone cairn, or socket into the upper
+      // cliff face; a knee strut closes a triangle with the cliff; three stringers drop in between the two tips.
+      // The deck follows the climb, so the lower stack sits under the low end and the upper stack under the high end.
+      const T = 6, PITCH = 7, PROJ = [36, 66, 96, 126], NT = PROJ.length;
+      const stack = (P, outDir, tailLen, under) => {
+        // tier j's top surface: y = P.y + under + PITCH*(NT-1-j); beam from cliff line - tail to cliff line + proj
+        const tips = [];
+        PROJ.forEach((proj, j) => { const y = P.y + under + PITCH * (NT - 1 - j) + T / 2, x0 = P.x - outDir * tailLen, x1 = P.x + outDir * proj; push(member({ x: x0, y }, { x: x1, y }, 'chord', T, TIMB, { u: -.1 + .012 * j })); tips.push({ x: x1, y: y - T / 2 }); });
+        // sleepers between tiers at the cliff line
+        for (let j = 0; j < NT - 1; j++) push({ kind: 'abut', x: P.x + outDir * 4, y: P.y + under + PITCH * (NT - 1 - j) - 1, w: 8, h: 6, rot: 0, color: DARK, u: -.1 + .012 * j + .006 });
+        return tips;
+      };
+      // the deck is 6px above the top tier at the cliff line; place the stacks accordingly
+      const lowP = P0, highP = P2, under = 6;
+      // each stack's top tier sits just under the deck where the deck passes over its outermost tip
+      const topL = at(PROJ[NT - 1]).y + under - lowP.y, topU = at(len - PROJ[NT - 1]).y + under - highP.y;
+      const tipsL = stack(lowP, dir, 170, topL), tipsU = stack(highP, -dir, 16, topU);
+      const baseL = lowP.y + topL + PITCH * (NT - 1) + T, baseU = highP.y + topU + PITCH * (NT - 1) + T;
+      // lower tails: stone cairn on the beams
+      for (let q = 0; q < 12; q++) { const cx = lowP.x - dir * (26 + (q % 6) * 22 + (q >= 6 ? 11 : 0)), cy = lowP.y + topL - 3 + (q >= 6 ? -9 : 0); push({ kind: 'stone', x: cx + (r() - .5) * 4, y: cy, w: 12 + r() * 5, h: 9 + r() * 3, rot: (r() - .5) * .5, color: '#3a3733', u: -.05 + .004 * q }); }
+      // upper tails: socket line on the cliff face
+      push({ kind: 'abut', x: highP.x + dir * 8, y: highP.y + topU + PITCH * (NT - 1) / 2 + 2, w: 4, h: PITCH * NT + 2, rot: 0, color: INK, u: -.1 });
+      // knee struts: from the cliff face 50px below each stack base up to the underside of tier 3
+      push(member({ x: lowP.x - dir * 6, y: baseL + 50 }, { x: lowP.x + dir * PROJ[2] * .85, y: tipsL[2].y + T }, 'brace', 5, TIMB, { u: -.04 }));
+      push(member({ x: highP.x + dir * 6, y: baseU + 50 }, { x: highP.x - dir * PROJ[2] * .85, y: tipsU[2].y + T }, 'brace', 5, TIMB, { u: -.04 }));
+      // the deck: inclined, so between the tips it is carried by three stringers; over each stack it rests on the top tier
+      // deck line = the path curve. Stringers from tipL to tipU under the deck.
+      const sL = PROJ[NT - 1] / len, sU = 1 - PROJ[NT - 1] / len;
+      for (let i = 0; i < 3; i++) { const o = (i - 1) * 7; const pa = at(sL * len), pb = at(sU * len); push(member({ x: pa.x, y: pa.y + 5 + o * .3 }, { x: pb.x, y: pb.y + 5 + o * .3 }, 'chord', 4, TIMB, { u: -.02 + .01 * i })); }
+      // a short post from each stack's top tier tip up to the deck underside (the deck climbs above the horizontal tiers)
+      for (const [tips, s] of [[tipsL, sL], [tipsU, sU]]) { const p = at(s * len); if (p.y + 4 < tips[NT - 1].y - 2) push(member({ x: tips[NT - 1].x, y: tips[NT - 1].y }, { x: p.x, y: p.y + 4 }, 'vert', 4, TIMB, { u: -.03 })); }
       for (let s = 0; s < len; s += 5) { const p = at(s); push({ s, kind: 'deck', x: p.x, y: p.y, w: 5.6, h: DECK_W * PERP, rot: p.ang, color: DECK, a: .9, order: .5, still: true }); if (r() > .1) push({ s, kind: 'plank', x: p.x, y: p.y, w: 2, h: DECK_W * PERP, rot: p.ang, color: PLANK, order: .6 }); }
       for (let s = 6; s < len; s += 12) { const p = at(s); push({ s, kind: 'cleat', x: p.x - p.nx * 1.5, y: p.y - p.ny * 1.5, w: 2.2, h: DECK_W * PERP * .9, rot: p.ang, color: DARK, order: .7 }); }
       for (let s = 10; s < len; s += 36) { const p = at(s), q = at(Math.min(len, s + 36)); for (const side of [-1, 1]) { const px = p.x + p.nx * side * halfW, py = p.y + p.ny * side * halfW, qx = q.x + q.nx * side * halfW, qy = q.y + q.ny * side * halfW; push({ s, kind: 'post', x: px, y: py - 11, w: 2.5, h: 24, rot: 0, color: INK, u: s / len + .012, front: side > 0 }); push(Object.assign(member({ x: px, y: py - 22 }, { x: qx, y: qy - 22 }, 'rail', 1.5, INK), { u: s / len + .02, a: .75, front: side > 0 })); } }
