@@ -12,7 +12,7 @@ rows.forEach(([type,y0],i)=>{
   ctx.save(); ledgeBlock(P0.x+44,P0.y+7,1,300); ledgeBlock(P2.x,P2.y,-1,300); ctx.restore();
   const B=Bridges.make({k:i,P0,P2,landing:{x:P2.x+60,y:P2.y-3},type,seed:i*977+5,DECK_W:110,INK});
   for(const pn of B.pinnacles){ const w0=pn.w/2,w1=w0+40; const pts=[[pn.x-w0,pn.yTop],[pn.x-w0*.5,pn.yTop-1],[pn.x,pn.yTop-1],[pn.x+w0*.5,pn.yTop-1],[pn.x+w0,pn.yTop],[pn.x+w0+6,pn.yTop+40],[pn.x+w1,pn.yTop+300],[pn.x-w1,pn.yTop+300],[pn.x-w0-8,pn.yTop+50]]; rock(ctx,pts,{seed:pn.seed,amp:4,round:2,base:.2,pool:.3,lip:.1,poolEdge:.14,cun:40,cunLen:40,lineWidth:2.6}); }
-  for(const sl of B.slots){ ctx.save(); ctx.translate(sl.x,sl.y); ctx.rotate(sl.rot); ctx.globalAlpha=sl.a||1; Bridges.drawPiece(ctx,sl); ctx.restore(); }
+  for(const sl of B.slots){ Bridges.place(ctx, sl, sl.x, sl.y, sl.rot, sl.a||1); }
   ctx.fillStyle='#8a857a'; ctx.font='13px system-ui'; ctx.fillText(type.toUpperCase(), 60, y0+90);
 });
 // mist veil over the lower part of each row so bases dissolve like the scene

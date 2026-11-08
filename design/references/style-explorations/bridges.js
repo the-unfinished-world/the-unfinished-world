@@ -55,13 +55,43 @@ window.Bridges = (function () {
   // a curve as a run of short pieces
   function run(C, kind, h, color, step, extra) { const out = []; for (let s = 0; s < C.len; s += step) { const a = C.at(s), b = C.at(Math.min(C.len, s + step)); out.push(Object.assign(member(a, b, kind, h, color), { s }, extra || {})); } return out; }
 
-  // ---- the three types ----------------------------------------------------------------------------
+  // ---- the camera -----------------------------------------------------------------------------------
+  // One oblique view for every bridge: depth (across the walkway) always projects to the same screen vector,
+  // far edge up and slightly right. Near edge = centreline - DEPTH, far edge = centreline + DEPTH. Posts are plumb.
+  const DEPTH = { x: 4, y: -14 }, DL = Math.hypot(DEPTH.x, DEPTH.y), DU = { x: DEPTH.x / DL, y: DEPTH.y / DL };
+  const nearPt = (p, k) => ({ x: p.x - DEPTH.x * (k == null ? 1 : k), y: p.y - DEPTH.y * (k == null ? 1 : k) });
+  const farPt = (p, k) => ({ x: p.x + DEPTH.x * (k == null ? 1 : k), y: p.y + DEPTH.y * (k == null ? 1 : k) });
+  // draw a piece: deck boards use a sheared frame (x along the path, y along DEPTH); everything else rotates
+  function place(ctx, sl, x, y, rot, alpha) {
+    ctx.save(); ctx.globalAlpha = alpha == null ? 1 : alpha;
+    if (sl.shear) { const c = Math.cos(rot), s = Math.sin(rot); ctx.transform(c, s, sl.shear.x, sl.shear.y, x, y); } else { ctx.translate(x, y); ctx.rotate(rot); }
+    drawPiece(ctx, sl); ctx.restore();
+  }
+
+  // a thin paper gap drawn under a near piece where it crosses the black figure, so the overlap reads
+  function halo(ctx, sl, x, y, rot, pad) { ctx.save(); if (sl.shear) { const c = Math.cos(rot), s = Math.sin(rot); ctx.transform(c, s, sl.shear.x, sl.shear.y, x, y); } else { ctx.translate(x, y); ctx.rotate(rot); } ctx.fillStyle = '#ece7dc'; const w = Math.max(1, sl.w), hh = Math.max(1, sl.h); ctx.fillRect(-w / 2 - pad, -hh / 2 - pad, w + 2 * pad, hh + 2 * pad); ctx.restore(); }
+
+  // ---- the bridge types -----------------------------------------------------------------------------
   function make(o) {
     const { P0, P2, type, seed, DECK_W, INK } = o, r = rng(seed), dir = Math.sign(P2.x - P0.x) || 1;
     const mid = { x: (P0.x + P2.x) / 2, y: (P0.y + P2.y) / 2 }, span = Math.hypot(P2.x - P0.x, P2.y - P0.y);
     const DARK = '#2f2c28', TIMB = '#3a3733', DECK = '#8e897f', PLANK = '#56524b', PERP = .3, halfW = DECK_W * PERP * .5;
     const slots = [], pinnacles = [];
     const push = (sl) => { if (sl.u == null) sl.u = (sl.s == null ? 0 : sl.s / len) + r() * .012; const ang = -Math.PI * .55 + (r() - .5) * 1.2, dist = 60 + r() * 30; sl.sx = sl.still ? sl.x : sl.fromBelow ? sl.x : sl.x + Math.cos(ang) * dist * (r() < .5 ? -1 : 1); sl.sy = sl.still ? sl.y : sl.fromBelow ? sl.y + sl.h * .5 : sl.y + Math.abs(Math.sin(ang)) * dist; sl.mx = (sl.sx + sl.x) / 2 + (r() - .5) * 20; sl.my = Math.min(sl.sy, sl.y) - 12; sl.dur = .4 + r() * .2; sl.rot0 = sl.still ? 0 : (r() - .5) * .5; sl.a = sl.a || 1; slots.push(sl); };
+    // deck boards across the walkway (sheared to DEPTH), optional cleats; s0/s1 limit the run; uOff shifts build time
+    const deckRun = (Cv, opts) => { opts = opts || {}; const L = Cv.len;
+      for (let s = 0; s < L; s += 5) { const p = Cv.at(s), u = opts.u ? opts.u(s) : undefined;
+        push({ s, u, kind: 'deck', x: p.x, y: p.y, w: 5.6, h: 2 * DL, rot: p.ang, shear: DU, color: DECK, a: .9, order: .5, still: true });
+        if (r() > .1) push({ s, u: u == null ? undefined : u + .004, kind: 'plank', x: p.x, y: p.y, w: 2, h: 2 * DL, rot: p.ang, shear: DU, color: PLANK, order: .6 }); }
+      if (opts.cleats) for (let s = 6; s < L; s += 12) { const p = Cv.at(s); push({ s, kind: 'cleat', x: p.x, y: p.y, w: 2.2, h: 2 * DL * .9, rot: p.ang, shear: DU, color: DARK, order: .7 }); } };
+    // plumb posts on the near and far deck edges, rails between post tops; near side drawn in front of the walker
+    const railRun = (Cv, levels) => { const L = Cv.len;
+      for (let s = 10; s < L - 4; s += 36) { const p = Cv.at(s), q = Cv.at(Math.min(L, s + 36));
+        for (const side of [-1, 1]) { const front = side < 0, Pp = front ? nearPt(p) : farPt(p), Qp = front ? nearPt(q) : farPt(q);
+          push({ s, kind: 'post', x: Pp.x, y: Pp.y - 24, w: 2.6, h: 48, rot: 0, color: INK, u: s / len + .012, front });
+          if (s + 36 <= L + 30) for (const lvl of levels) push(Object.assign(member({ x: Pp.x, y: Pp.y - lvl }, { x: Qp.x, y: Qp.y - lvl }, 'rail', 1.5, INK), { u: s / len + .02, a: .75, front })); } } };
+    // the underside of the deck's near edge at path point p
+    const underNear = (p, gap) => ({ x: p.x - DEPTH.x, y: p.y - DEPTH.y + (gap == null ? 3 : gap) });
     let P1, C, len;
     if (type === 'rope') P1 = { x: mid.x, y: mid.y + 30 + span * .04 };              // sag
     else if (type === 'truss') P1 = { x: mid.x, y: mid.y - 8 };                        // slight camber
@@ -69,114 +99,104 @@ window.Bridges = (function () {
     C = curve(P0, P1, P2); len = C.len; const at = C.at;
 
     if (type === 'rope') {
-      const TH = 64;                                                                   // tower height
-      const T0 = { x: P0.x - dir * 6, y: P0.y - TH }, T2 = { x: P2.x + dir * 6, y: P2.y - TH };
-      // towers stand on the ledge tops; anchors are stakes behind them, back-stays run tower top -> anchor
-      for (const [P, T, side] of [[P0, T0, -dir], [P2, T2, dir]]) {
-        push({ kind: 'tower', x: T.x, y: P.y - TH / 2 + 2, w: 4.5, h: TH + 4, rot: 0, color: DARK, u: -.1, fromBelow: true });
-        push({ kind: 'cap', x: T.x, y: P.y + 3, w: 18, h: 3, rot: 0, color: DARK, u: -.1 });
-        const A = { x: P.x + side * 72, y: P.y + 1 };
-        push({ kind: 'anchor', x: A.x, y: A.y + 4, w: 4, h: 14, rot: 0, color: DARK, u: -.1 });        // stake driven into the ledge
-        push({ kind: 'anchor', x: A.x + side * 6, y: A.y + 1, w: 14, h: 6, rot: 0, color: DARK, u: -.1 }); // deadman block behind it
-        push(member(T, { x: A.x, y: A.y - 2 }, 'stay', 1.6, INK, { u: -.09 }));
-        const Dk = { x: P.x + side * 18, y: P.y + 1 };                                                     // deck-rope stake
-        push({ kind: 'anchor', x: Dk.x, y: Dk.y + 3, w: 3.5, h: 10, rot: 0, color: DARK, u: -.1 });
-        for (const s2 of [-1, 1]) push(member({ x: P.x, y: P.y + s2 * halfW * .3 }, { x: Dk.x, y: Dk.y - 2 }, 'rope', 1.5, INK, { u: -.02 }));
+      // suspension footbridge: a tower on each deck edge at each end, back-stays to anchors behind, a main cable per
+      // side sagging between its towers, plumb hangers down to that side's deck edge, side ropes along both edges.
+      const TH = 64, tops = { near: [], far: [] };
+      const sidePt = (which, p) => which === 'near' ? nearPt(p) : farPt(p);
+      for (const [P, back] of [[P0, -dir], [P2, dir]]) {
+        const base = { x: P.x + back * 6, y: P.y };
+        push(Object.assign(member(nearPt(base, .9), farPt(base, .9), 'cap', 3, DARK), { u: -.1 }));        // sill between the tower feet
+        for (const which of ['far', 'near']) { const front = which === 'near', B = sidePt(which, base), Tt = { x: B.x, y: B.y - TH };
+          push({ kind: 'tower', x: B.x, y: B.y - TH / 2 + 2, w: 4.5, h: TH + 4, rot: 0, color: DARK, u: -.1, fromBelow: true, front });
+          tops[which].push(Tt);
+          const A = { x: B.x + back * 72, y: B.y + 1 };
+          push({ kind: 'anchor', x: A.x, y: A.y + 4, w: 4, h: 14, rot: 0, color: DARK, u: -.1, front });
+          push({ kind: 'anchor', x: A.x + back * 6, y: A.y + 1, w: 14, h: 6, rot: 0, color: DARK, u: -.1, front });
+          push(member(Tt, { x: A.x, y: A.y - 2 }, 'stay', 1.6, INK, { u: -.09, front }));
+          const Dk = sidePt(which, { x: P.x + back * 18, y: P.y + 1 }), E = sidePt(which, P);       // deck-rope stake for this edge
+          push({ kind: 'anchor', x: Dk.x, y: Dk.y + 3, w: 3.5, h: 10, rot: 0, color: DARK, u: -.1, front });
+          push(member(E, { x: Dk.x, y: Dk.y - 2 }, 'rope', 1.5, INK, { u: -.02, front })); }
       }
-      // main cables: pass TH above the towers' feet, sag to ~28px above the deck at mid-span
-      const sagY = at(len / 2).y - 34, Q1 = { x: mid.x, y: 2 * sagY - .5 * (T0.y + T2.y) };
-      const cable = curve(T0, Q1, T2);
-      for (const side of [-1, 1]) for (const pc of run(cable, 'cable', 1.7, INK, 14)) push(Object.assign(pc, { x: pc.x + side * halfW * .35, u: -.08 + .05 * (pc.s / cable.len), front: side > 0 }));
-      // hangers every 16px from cable to deck edge
-      for (let s = 16; s < len - 8; s += 16) { const d = at(s), t = s / len; const cs = cable.at(t * cable.len); for (const side of [-1, 1]) { const dx = d.x + d.nx * side * halfW, dy = d.y + d.ny * side * halfW, cx = cs.x + side * halfW * .35; push(member({ x: cx, y: cs.y }, { x: dx, y: dy }, 'hanger', 1.1, INK, { s, u: -.02 + .02 * t, front: side > 0 })); } }
-      // side ropes at deck level, deck planks slung between them
-      for (const side of [-1, 1]) for (const pc of run(C, 'rope', 1.6, INK, 12)) push(Object.assign(pc, { x: pc.x + pc.s * 0 + (at(pc.s).nx * side * halfW), y: pc.y + at(pc.s).ny * side * halfW, u: -.01 + .01 * (pc.s / len), front: side > 0 }));
-      for (let s = 0; s < len; s += 5) { const p = at(s); push({ s, kind: 'deck', x: p.x, y: p.y, w: 5.6, h: DECK_W * PERP, rot: p.ang, color: DECK, a: .9, order: .5, still: true }); if (r() > .1) push({ s, kind: 'plank', x: p.x, y: p.y, w: 2, h: DECK_W * PERP, rot: p.ang, color: PLANK, order: .6 }); }
+      for (const which of ['far', 'near']) { const front = which === 'near', [Ta, Tb] = tops[which];
+        const edgeMid = sidePt(which, at(len / 2)), sagY = edgeMid.y - 34, Q1 = { x: (Ta.x + Tb.x) / 2, y: 2 * sagY - .5 * (Ta.y + Tb.y) };
+        const cable = curve(Ta, Q1, Tb);
+        for (const pc of run(cable, 'cable', 1.7, INK, 14)) push(Object.assign(pc, { u: -.08 + .05 * (pc.s / cable.len), front }));
+        // plumb hangers: the cable's x is linear in t, so the hanger above an edge point is found directly
+        for (let s = 16; s < len - 8; s += 16) { const E = sidePt(which, at(s)), t = (E.x - Ta.x) / (Tb.x - Ta.x); if (t <= 0 || t >= 1) continue; const cy = bez(Ta.y, Q1.y, Tb.y, t); if (cy < E.y - 6) push(member({ x: E.x, y: cy }, E, 'hanger', 1.1, INK, { s, u: -.02 + .02 * (s / len), front })); }
+        const edge = curve(sidePt(which, P0), sidePt(which, P1), sidePt(which, P2));
+        for (const pc of run(edge, 'rope', 1.6, INK, 12)) push(Object.assign(pc, { u: -.01 + .01 * (pc.s / len), front })); }
+      deckRun(C);
     }
     else if (type === 'truss') {
-      const H = Math.max(40, Math.min(52, span / 7));                                   // truss depth
-      // abutments on the ledges
-      push({ kind: 'abut', x: P0.x - dir * 10, y: P0.y + 5, w: 24, h: 8, rot: 0, color: DARK, u: -.1 });
-      push({ kind: 'abut', x: P2.x + dir * 10, y: P2.y + 5, w: 24, h: 8, rot: 0, color: DARK, u: -.1 });
-      const low = P0.y > P2.y ? P0 : P2, lowSide = low === P0 ? -dir : dir;
-      push({ kind: 'abut', x: low.x + lowSide * 22, y: low.y - 3, w: 10, h: 12, rot: 0, color: DARK, u: -.1 });
-      const top = s => { const p = at(s); return { x: p.x - p.nx * H, y: p.y - p.ny * H }; };
-      // chords: bottom (carries the deck) and top, each as a run of pieces; built out from the near end
-      for (const pc of run(C, 'chord', 3.4, TIMB, 20)) push(Object.assign(pc, { u: -.07 + .04 * (pc.s / len) }));
-      for (let s = 0; s < len; s += 20) { const a = top(s), b = top(Math.min(len, s + 20)); push(Object.assign(member(a, b, 'chord', 2.8, TIMB), { s, u: -.06 + .04 * (s / len) })); }
-      // verticals every 40px (end posts included), Howe diagonals leaning toward mid-span
+      // timber Howe truss: a truss plane on each deck edge, plumb verticals, top chords at handrail height,
+      // diagonals leaning toward mid-span; transverse abutment sills at both lips, a thrust block at the low end.
+      const H = 46;
+      for (const [P, back] of [[P0, -dir], [P2, dir]]) { const base = { x: P.x + back * 8, y: P.y + 4 }; push(Object.assign(member(nearPt(base, 1.15), farPt(base, 1.15), 'abut', 8, DARK), { u: -.1 })); }
+      const low = P0.y > P2.y ? P0 : P2, lowSide = low === P0 ? -dir : dir, lowN = nearPt(low);
+      push({ kind: 'abut', x: lowN.x + lowSide * 20, y: lowN.y - 2, w: 10, h: 12, rot: 0, color: DARK, u: -.1 });
       const bays = Math.max(4, Math.round(len / 40)), bay = len / bays;
-      for (let i = 0; i <= bays; i++) { const s = i * bay, b = at(s), t = top(s); push(Object.assign(member({ x: b.x, y: b.y }, t, 'vert', 2.8, TIMB), { s, u: -.05 + .04 * (s / len) })); }
-      for (let i = 0; i < bays; i++) { const s0 = i * bay, s1 = (i + 1) * bay, towardMid = (s0 + s1) / 2 < len / 2; const a = towardMid ? at(s0) : at(s1), b = towardMid ? top(s1) : top(s0); push(Object.assign(member({ x: a.x, y: a.y }, b, 'brace', 1.8, TIMB), { s: s0, u: -.045 + .04 * (s0 / len) })); }
-      for (let s = 0; s < len; s += 5) { const p = at(s); push({ s, kind: 'deck', x: p.x, y: p.y, w: 5.6, h: DECK_W * PERP, rot: p.ang, color: DECK, a: .9, order: .5, still: true }); if (r() > .1) push({ s, kind: 'plank', x: p.x, y: p.y, w: 2, h: DECK_W * PERP, rot: p.ang, color: PLANK, order: .6 }); }
-      for (let s = 6; s < len; s += 12) { const p = at(s); push({ s, kind: 'cleat', x: p.x - p.nx * 1.5, y: p.y - p.ny * 1.5, w: 2.2, h: DECK_W * PERP * .9, rot: p.ang, color: DARK, order: .7 }); }
-      // a hand rail at 22px inside the truss
-      for (let s = 10; s < len; s += 36) { const a = at(s), b = at(Math.min(len, s + 36)); push(Object.assign(member({ x: a.x + a.nx * halfW, y: a.y + a.ny * halfW - 20 }, { x: b.x + b.nx * halfW, y: b.y + b.ny * halfW - 20 }, 'rail', 1.4, INK), { s: s + 18, u: s / len + .03, a: .75, front: true })); if (s % 72 === 10) push({ s, kind: 'post', x: a.x + a.nx * halfW, y: a.y + a.ny * halfW - 10, w: 2.4, h: 22, rot: 0, color: INK, u: s / len + .025, front: true }); }
+      for (const which of ['far', 'near']) { const front = which === 'near', E = s => which === 'near' ? nearPt(at(s)) : farPt(at(s)), Tp = s => { const e = E(s); return { x: e.x, y: e.y - H }; };
+        for (let s = 0; s < len; s += 20) { const s2 = Math.min(len, s + 20); push(Object.assign(member(E(s), E(s2), 'chord', 3.4, TIMB), { s, u: -.07 + .04 * (s / len), front })); push(Object.assign(member(Tp(s), Tp(s2), 'chord', 2.8, TIMB), { s, u: -.06 + .04 * (s / len), front })); }
+        for (let i = 0; i <= bays; i++) { const s = i * bay; push(Object.assign(member(E(s), Tp(s), 'vert', 2.8, TIMB), { s, u: -.05 + .04 * (s / len), front })); }
+        for (let i = 0; i < bays; i++) { const s0 = i * bay, s1 = (i + 1) * bay, towardMid = (s0 + s1) / 2 < len / 2; push(Object.assign(member(towardMid ? E(s0) : E(s1), towardMid ? Tp(s1) : Tp(s0), 'brace', 1.8, TIMB), { s: s0, u: -.045 + .04 * (s0 / len), front })); } }
+      deckRun(C, { cleats: true });
     }
     else if (type === 'cantilever') {
-      // Bhutanese bazam: from each cliff, 4 beams stacked in contact, each projecting further than the one below,
-      // all horizontal from the cliff line; tails lie on the lower ledge under a stone cairn, or socket into the upper
-      // cliff face; a knee strut closes a triangle with the cliff; three stringers drop in between the two tips.
-      // The deck follows the climb, so the lower stack sits under the low end and the upper stack under the high end.
-      const T = 6, PITCH = 7, PROJ = [36, 66, 96, 126], NT = PROJ.length;
-      const stack = (P, outDir, tailLen, under) => {
-        // tier j's top surface: y = P.y + under + PITCH*(NT-1-j); beam from cliff line - tail to cliff line + proj
+      // Bhutanese bazam adapted to a climbing crossing: from each cliff, 4 beams stacked in contact project
+      // horizontally, each further than the one below; lower tails lie on the ledge under a stone cairn, upper tails
+      // socket into the cliff; a knee strut from the cliff face to tier 3; posts from the tiers up to the deck;
+      // stringers under the deck between the two stacks. Everything meets the deck at its near-edge underside.
+      const T = 6, PITCH = 7, PROJ = [36, 66, 96, 126], NT = PROJ.length, D0 = Math.abs(DEPTH.y) + 4;
+      const sAtX = x => { let best = 0, bd = 1e9; for (let s = 0; s <= len; s += 2) { const dd = Math.abs(at(s).x - x); if (dd < bd) { bd = dd; best = s; } } return best; };
+      const underY = x => underNear(at(sAtX(x)), 2).y;
+      const stack = (P, outDir, tailLen, top) => {
         const tips = [];
-        PROJ.forEach((proj, j) => { const y = P.y + under + PITCH * (NT - 1 - j) + T / 2, x0 = P.x - outDir * tailLen, x1 = P.x + outDir * proj; push(member({ x: x0, y }, { x: x1, y }, 'chord', T, TIMB, { u: -.1 + .012 * j })); tips.push({ x: x1, y: y - T / 2 }); });
-        // sleepers between tiers at the cliff line
-        for (let j = 0; j < NT - 1; j++) push({ kind: 'abut', x: P.x + outDir * 4, y: P.y + under + PITCH * (NT - 1 - j) - 1, w: 8, h: 6, rot: 0, color: DARK, u: -.1 + .012 * j + .006 });
+        PROJ.forEach((proj, j) => { const y = P.y + top + PITCH * (NT - 1 - j) + T / 2, yTop = y - T / 2; let pr = proj;
+          for (let dd = 4; dd <= proj; dd += 2) if (underY(P.x + outDir * dd) >= yTop - 1) { pr = Math.max(10, dd - 3); break; }   // stop where the beam meets the deck underside
+          const x0 = P.x - outDir * tailLen, x1 = P.x + outDir * pr; push(member({ x: x0, y }, { x: x1, y }, 'chord', T, TIMB, { u: -.1 + .012 * j })); tips.push({ x: x1, y: yTop }); });
+        for (let j = 0; j < NT - 1; j++) push({ kind: 'abut', x: P.x + outDir * 4, y: P.y + top + PITCH * (NT - 1 - j) - 1, w: 8, h: 6, rot: 0, color: DARK, u: -.1 + .012 * j + .006 });
         return tips;
       };
-      // the deck is 6px above the top tier at the cliff line; place the stacks accordingly
-      const lowP = P0, highP = P2, under = 6;
-      // each stack's top tier sits just under the deck where the deck passes over its outermost tip
-      // lower stack rests on its ledge (top tier at the lip); upper stack hangs at most 40px under the lip
-      const topL = under, topU = Math.min(40, at(len - PROJ[NT - 1]).y + under - highP.y);
+      const lowP = P0, highP = P2;
+      const topL = D0, topU = Math.min(40 + D0, at(len - PROJ[NT - 1]).y + D0 - highP.y);
       const tipsL = stack(lowP, dir, 170, topL), tipsU = stack(highP, -dir, 16, topU);
       const baseL = lowP.y + topL + PITCH * (NT - 1) + T, baseU = highP.y + topU + PITCH * (NT - 1) + T;
-      // lower tails: stone cairn on the beams
       for (let q = 0; q < 12; q++) { const cx = lowP.x - dir * (26 + (q % 6) * 22 + (q >= 6 ? 11 : 0)), cy = lowP.y + topL - 3 + (q >= 6 ? -9 : 0); push({ kind: 'stone', x: cx + (r() - .5) * 4, y: cy, w: 12 + r() * 5, h: 9 + r() * 3, rot: (r() - .5) * .5, color: '#3a3733', u: -.05 + .004 * q }); }
-      // upper tails: socket line on the cliff face
       push({ kind: 'abut', x: highP.x + dir * 8, y: highP.y + topU + PITCH * (NT - 1) / 2 + 2, w: 4, h: PITCH * NT + 2, rot: 0, color: INK, u: -.1 });
-      // knee struts: from the cliff face 50px below each stack base up to the underside of tier 3
       push(member({ x: lowP.x - dir * 6, y: baseL + 50 }, { x: lowP.x + dir * PROJ[2] * .85, y: tipsL[2].y + T }, 'brace', 5, TIMB, { u: -.04 }));
       push(member({ x: highP.x + dir * 6, y: baseU + 50 }, { x: highP.x - dir * PROJ[2] * .85, y: tipsU[2].y + T }, 'brace', 5, TIMB, { u: -.04 }));
-      // the deck: inclined, so between the tips it is carried by three stringers; over each stack it rests on the top tier
-      // deck line = the path curve. Stringers from tipL to tipU under the deck.
-      const sL = PROJ[NT - 1] / len, sU = 1 - PROJ[NT - 1] / len;
-      for (let i = 0; i < 3; i++) { const o = (i - 1) * 7; const pa = at(sL * len), pb = at(sU * len); push(member({ x: pa.x, y: pa.y + 5 + o * .3 }, { x: pb.x, y: pb.y + 5 + o * .3 }, 'chord', 4, TIMB, { u: -.02 + .01 * i })); }
-      // posts from the top-tier tip and from mid-stack up to the deck underside, so each stack carries the deck at two points
-      const postUp = (x, yTop) => { let s = 0, best = 0, bd = 1e9; for (s = 0; s <= len; s += 2) { const p = at(s); const dd = Math.abs(p.x - x); if (dd < bd) { bd = dd; best = s; } } const p = at(best); if (p.y + 4 < yTop - 2) push(member({ x, y: yTop }, { x, y: p.y + 4 }, 'vert', 4, TIMB, { u: -.03 })); };
-      postUp(tipsL[NT - 1].x, tipsL[NT - 1].y); postUp(lowP.x + dir * PROJ[1], tipsL[NT - 1].y);
-      postUp(tipsU[NT - 1].x, tipsU[NT - 1].y); postUp(highP.x - dir * PROJ[1], tipsU[NT - 1].y);
-      for (let s = 0; s < len; s += 5) { const p = at(s); push({ s, kind: 'deck', x: p.x, y: p.y, w: 5.6, h: DECK_W * PERP, rot: p.ang, color: DECK, a: .9, order: .5, still: true }); if (r() > .1) push({ s, kind: 'plank', x: p.x, y: p.y, w: 2, h: DECK_W * PERP, rot: p.ang, color: PLANK, order: .6 }); }
-      for (let s = 6; s < len; s += 12) { const p = at(s); push({ s, kind: 'cleat', x: p.x - p.nx * 1.5, y: p.y - p.ny * 1.5, w: 2.2, h: DECK_W * PERP * .9, rot: p.ang, color: DARK, order: .7 }); }
-      for (let s = 10; s < len; s += 36) { const p = at(s), q = at(Math.min(len, s + 36)); for (const side of [-1, 1]) { const px = p.x + p.nx * side * halfW, py = p.y + p.ny * side * halfW, qx = q.x + q.nx * side * halfW, qy = q.y + q.ny * side * halfW; push({ s, kind: 'post', x: px, y: py - 11, w: 2.5, h: 24, rot: 0, color: INK, u: s / len + .012, front: side > 0 }); push(Object.assign(member({ x: px, y: py - 22 }, { x: qx, y: qy - 22 }, 'rail', 1.5, INK), { u: s / len + .02, a: .75, front: side > 0 })); } }
+      // stringers along the deck's near-edge underside, full length
+      for (let i = 0; i < 2; i++) for (const pc of run(C, 'chord', 4, TIMB, 20)) { const u0 = underNear(at(pc.s), 3 + i * 4); push(Object.assign(pc, { x: pc.x - DEPTH.x, y: pc.y - DEPTH.y + 3 + i * 4, u: pc.s / len - .03 + .005 * i })); }
+      // posts from the tiers up to the near-edge underside: at each stack's tip and mid-stack
+      const postUp = (x, yTop) => { const top = underNear(at(sAtX(x)), 2); if (top.y < yTop - 2) push(member({ x, y: yTop }, { x, y: top.y }, 'vert', 4, TIMB, { u: -.03 })); };
+      postUp(tipsL[NT - 1].x, tipsL[NT - 1].y); postUp((lowP.x + tipsL[NT - 1].x) / 2, tipsL[NT - 1].y);
+      postUp(tipsU[NT - 1].x, tipsU[NT - 1].y); postUp((highP.x + tipsU[NT - 1].x) / 2, tipsU[NT - 1].y);
+      deckRun(C, { cleats: true });
+      railRun(C, [46, 26]);
     }
     else { // pier: trestles on rock pinnacles
       const n = span > 300 ? 2 : 1;
       for (let i = 0; i < n; i++) {
         const s = len * (n === 1 ? .5 : .33 + .34 * i), p = at(s), H = 54 + r() * 24;
-        pinnacles.push({ x: p.x, yTop: p.y + H + 6, w: 46, seed: seed * 3 + i });
-        push({ kind: 'cap', x: p.x, y: p.y + 8, w: 28, h: 3.5, rot: 0, color: DARK, s, u: s / len - .05 });
-        for (const side of [-1, 1]) push({ kind: 'leg', x: p.x + side * 9, y: p.y + 9 + H / 2, w: 3, h: H - 2, rot: 0, color: DARK, s, u: s / len - .06, fromBelow: true });
-        push({ kind: 'brace', x: p.x, y: p.y + H * .5, w: 1.5, h: Math.min(30, H * .8), rot: .62, color: DARK, s, u: s / len - .055 });
-        push({ kind: 'brace', x: p.x, y: p.y + H * .5, w: 1.5, h: Math.min(30, H * .8), rot: -.62, color: DARK, s, u: s / len - .055 });
-        push({ kind: 'foot', x: p.x, y: p.y + H + 8, w: 28, h: 3.5, rot: 0, color: DARK, s, u: s / len - .07 });
+        const q = nearPt(p); pinnacles.push({ x: q.x, yTop: q.y + H + 6, w: 46, seed: seed * 3 + i });
+        push({ kind: 'cap', x: q.x, y: q.y + 8, w: 28, h: 3.5, rot: 0, color: DARK, s, u: s / len - .05 });
+        for (const side of [-1, 1]) push({ kind: 'leg', x: q.x + side * 9, y: q.y + 9 + H / 2, w: 3, h: H - 2, rot: 0, color: DARK, s, u: s / len - .06, fromBelow: true });
+        push({ kind: 'brace', x: q.x, y: q.y + H * .5, w: 1.5, h: Math.min(30, H * .8), rot: .62, color: DARK, s, u: s / len - .055 });
+        push({ kind: 'brace', x: q.x, y: q.y + H * .5, w: 1.5, h: Math.min(30, H * .8), rot: -.62, color: DARK, s, u: s / len - .055 });
+        push({ kind: 'foot', x: q.x, y: q.y + H + 8, w: 28, h: 3.5, rot: 0, color: DARK, s, u: s / len - .07 });
       }
       // short end trestles on the ledges
-      push({ kind: 'abut', x: P0.x - dir * 9, y: P0.y + 5, w: 22, h: 8, rot: 0, color: DARK, u: -.1 });    // sill on the lower lip
-      push({ kind: 'abut', x: P2.x + dir * 9, y: P2.y + 5, w: 22, h: 8, rot: 0, color: DARK, u: -.1 });    // sill on the upper lip
+      { const base = { x: P0.x - dir * 9, y: P0.y + 4 }; push(Object.assign(member(nearPt(base, 1.15), farPt(base, 1.15), 'abut', 8, DARK), { u: -.1 })); }    // sill on the lower lip
+      { const base = { x: P2.x + dir * 9, y: P2.y + 4 }; push(Object.assign(member(nearPt(base, 1.15), farPt(base, 1.15), 'abut', 8, DARK), { u: -.1 })); }    // sill on the upper lip
       // stringers between supports, then deck and rails
-      for (const pc of run(C, 'chord', 3, TIMB, 20)) push(Object.assign(pc, { y: pc.y + 3, u: pc.s / len - .03 }));
-      for (let s = 0; s < len; s += 5) { const p = at(s); push({ s, kind: 'deck', x: p.x, y: p.y, w: 5.6, h: DECK_W * PERP, rot: p.ang, color: DECK, a: .9, order: .5, still: true }); if (r() > .1) push({ s, kind: 'plank', x: p.x, y: p.y, w: 2, h: DECK_W * PERP, rot: p.ang, color: PLANK, order: .6 }); }
-      for (let s = 6; s < len; s += 12) { const p = at(s); push({ s, kind: 'cleat', x: p.x - p.nx * 1.5, y: p.y - p.ny * 1.5, w: 2.2, h: DECK_W * PERP * .9, rot: p.ang, color: DARK, order: .7 }); }
-      for (let s = 10; s < len; s += 36) { const p = at(s), q = at(Math.min(len, s + 36)); for (const side of [-1, 1]) { const px = p.x + p.nx * side * halfW, py = p.y + p.ny * side * halfW, qx = q.x + q.nx * side * halfW, qy = q.y + q.ny * side * halfW; push({ s, kind: 'post', x: px, y: py - 11, w: 2.5, h: 24, rot: 0, color: INK, u: s / len + .012, front: side > 0 }); for (const lvl of [22, 12]) push(Object.assign(member({ x: px, y: py - lvl }, { x: qx, y: qy - lvl }, 'rail', 1.5, INK), { u: s / len + .02, a: .75, front: side > 0 })); } }
+      for (const pc of run(C, 'chord', 3, TIMB, 20)) push(Object.assign(pc, { x: pc.x - DEPTH.x, y: pc.y - DEPTH.y + 3, u: pc.s / len - .03 }));
+      deckRun(C, { cleats: true });
+      railRun(C, [46, 26]);
     }
     if (o.landing) { const L = o.landing, n = Math.max(2, Math.round(Math.hypot(L.x - P2.x, L.y - P2.y) / 5)), ang = Math.atan2(L.y - P2.y, L.x - P2.x);
-      for (let i = 1; i <= n; i++) { const t = i / n, x = lerp(P2.x, L.x, t), y = lerp(P2.y, L.y, t); push({ kind: 'deck', x, y, w: 5.6, h: DECK_W * PERP, rot: ang + Math.PI / 2, color: DECK, a: .9, order: .5, still: true, u: 1 + .08 * t }); if (r() > .1) push({ kind: 'plank', x, y, w: 2, h: DECK_W * PERP, rot: ang + Math.PI / 2, color: PLANK, u: 1 + .08 * t + .005 }); } }
+      for (let i = 1; i <= n; i++) { const t = i / n, x = lerp(P2.x, L.x, t), y = lerp(P2.y, L.y, t); push({ kind: 'deck', x, y, w: 5.6, h: 2 * DL, rot: ang, shear: DU, color: DECK, a: .9, order: .5, still: true, u: 1 + .08 * t }); if (r() > .1) push({ kind: 'plank', x, y, w: 2, h: 2 * DL, rot: ang, shear: DU, color: PLANK, u: 1 + .08 * t + .005 }); } }
     slots.sort((a, b) => a.u - b.u);
     return { k: o.k, type, P0, P1, P2, len, at, slots, pinnacles };
   }
-  return { make, sprite, drawPiece };
+  return { make, sprite, drawPiece, place, halo, DEPTH };
 })();

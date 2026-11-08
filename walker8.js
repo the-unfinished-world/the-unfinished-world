@@ -27,7 +27,7 @@
     const L1 = .23, L2 = .22, FL = .14, AH = .028;                      // thigh, shank, foot length, ankle height above sole
     const slope = o.slope || 0, tanS = Math.tan(slope);                  // ground rises tanS per unit forward (climbing > 0)
     function leg(gg) {
-      const a = mix(key(HIP, gg), 2) * D, k = mix(key(KNEE, gg), 4) * D, p = mix(key(FOOT, gg), 0) * D - slope;   // sole follows the incline
+      const a = mix(key(HIP, gg), 2) * D, k = mix(key(KNEE, gg), 4) * D, p = mix(key(FOOT, gg), 0) * D;   // flat-ground gait; the incline is applied below
       const knee = [L1 * Math.sin(a), -L1 * Math.cos(a)], sa = a - k;
       const ank = [knee[0] + L2 * Math.sin(sa), knee[1] - L2 * Math.cos(sa)];
       const fw = [Math.cos(p), -Math.sin(p)], up = [Math.sin(p), Math.cos(p)];
@@ -36,9 +36,22 @@
       return { knee, ank, heel, toe, up, fw };
     }
     const near = leg(g), far = leg(g + .5); far.far = true;
-    // the lowest foot point, measured against the inclined ground under it, sets the pelvis height
-    const gY = pt => pt[1] - pt[0] * tanS;
-    const lowest = Math.min(gY(near.heel), gY(near.toe), gY(far.heel), gY(far.toe));
+    // Put the flat gait onto the incline: every foot point rises by x*tanS (x = forward of the hip), then each
+    // knee is re-solved with two-bone IK so the leg actually reaches its foot. If a downhill foot is out of reach,
+    // the hip drops until it is not. Ground origin: the flat gait's lowest point, directly under the hip.
+    const lowestFlat = Math.min(near.heel[1], near.toe[1], far.heel[1], far.toe[1]);
+    const shear = pt => [pt[0], pt[1] + pt[0] * tanS];
+    for (const Lg of [near, far]) { Lg.ank = shear(Lg.ank); Lg.heel = shear(Lg.heel); Lg.toe = shear(Lg.toe); }
+    const reach = L1 + L2 - 1e-3; let drop = 0;
+    for (const Lg of [near, far]) { const [ax, ay] = Lg.ank; if (Math.hypot(ax, ay) > reach) drop = Math.max(drop, -ay - Math.sqrt(Math.max(0, reach * reach - ax * ax))); }
+    if (drop > 0) for (const Lg of [near, far]) for (const kk of ['ank', 'heel', 'toe']) Lg[kk] = [Lg[kk][0], Lg[kk][1] + drop];
+    for (const Lg of [near, far]) {
+      const [ax, ay] = Lg.ank, dd = Math.min(Math.hypot(ax, ay), reach), th = Math.atan2(ay, ax), A = Math.acos(Math.max(-1, Math.min(1, (L1 * L1 + dd * dd - L2 * L2) / (2 * L1 * dd))));
+      const k1 = [L1 * Math.cos(th + A), L1 * Math.sin(th + A)], k2 = [L1 * Math.cos(th - A), L1 * Math.sin(th - A)];
+      Lg.knee = k1[0] > k2[0] ? k1 : k2;                                   // knees bend forward
+      const fx = Lg.toe[0] - Lg.heel[0], fy = Lg.toe[1] - Lg.heel[1], fl = Math.hypot(fx, fy) || 1; Lg.fw = [fx / fl, fy / fl]; Lg.up = [-Lg.fw[1], Lg.fw[0]];
+    }
+    const lowest = lowestFlat + drop;
     const bob = mix(-.006 * (1 - Math.cos(2 * ph)) / 2, 0);
     const rawPelvis = -lowest + bob; const st = (window.__w8 = window.__w8 || {}); const kk = o.variant || 'x'; st[kk] = st[kk] == null ? rawPelvis : st[kk] + (rawPelvis - st[kk]) * .25; const pelvisY = o.idle ? rawPelvis : st[kk];
     const leanA = mix(4, 2) * D;
