@@ -110,7 +110,7 @@ function extendRoute(upToK) {
     else { const Bk = bridge(k); route.push({ kind: 'bridge', k, s0: routeLen, len: Bk.len, dir: Lk.left ? 1 : -1, fn: t => { const p = Bk.at(t * Bk.len); return { x: p.x, y: p.y - 2 }; } }); routeLen += Bk.len; }
   }
 }
-function walkerAt(dist) { extendRoute(Math.floor(dist / 450) + 3); let seg = route[0]; for (const s of route) { if (dist >= s.s0) seg = s; else break; } const t = Math.min(1, (dist - seg.s0) / seg.len); return Object.assign(seg.fn(t), { seg, t }); }
+function walkerAt(dist) { extendRoute(Math.floor(dist / 450) + 3); let seg = route[0]; for (const s of route) { if (dist >= s.s0) seg = s; else break; } const t = Math.min(1, (dist - seg.s0) / seg.len); const a = seg.fn(Math.max(0, t - .01)), b = seg.fn(Math.min(1, t + .01)); const slope = seg.kind === 'bridge' ? Math.atan2(-(b.y - a.y), Math.abs(b.x - a.x) || 1) : 0; return Object.assign(seg.fn(t), { seg, t, slope }); }
 const LEAD = 140;
 function lockTime(Bk, u) { const sgm = route.find(s => s.kind === 'bridge' && s.k === Bk.k); return (sgm.s0 + u * Bk.len - LEAD) / SPEED; }
 
@@ -204,6 +204,7 @@ function frame(now) {
   for (let k = kHi; k >= kLo; k--) { const L = ledge(k); const above = (pos.y - L.yTop) / STEP, dk = Math.abs(k - kw);
     const depthA = dk <= 1 ? 1 : dk <= 3 ? .72 : .5;
     ctx.globalAlpha = Math.min(depthA, above > 1.6 ? Math.max(.25, 1 - (above - 1.6) * .5) : 1); bridge(k).pinnacles.forEach((pn, i) => drawPinnacle(k, i, pn)); drawLedge(L); ctx.globalAlpha = 1; }
+  const frontPieces = [];
   for (let k = kLo; k <= kHi; k++) {
     const Bk = bridge(k); extendRoute(k + 2);
     for (const sl of Bk.slots) {
@@ -211,12 +212,15 @@ function frame(now) {
       const p = Math.min(1, (T - tStart) / sl.dur); let x = sl.x, y = sl.y, rot = sl.rot, al = sl.a, sc = 1;
       if (p < 1) { const e = easeOut(p), over = Math.sin(p * Math.PI) * .035; x = bez(sl.sx, sl.mx, sl.x, e); y = bez(sl.sy, sl.my, sl.y, e); rot = sl.rot + sl.rot0 * (1 - e) + over; al *= lerp(.15, 1, p);
         if (Math.abs(x - pos.x) < 90 && y > pos.y - WALKER_H - 70 && y < pos.y + 30) continue; }
+      if (sl.front && p >= 1) { frontPieces.push([sl, x, y, rot, al]); continue; }
       ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.globalAlpha = al; drawPiece(sl); ctx.restore();
     }
   }
   if (prevPos) { const ds = Math.hypot(pos.x - prevPos.x, pos.y - prevPos.y); phase += (ds / (.84 * WALKER_H)) * Math.PI * 2; }
   prevPos = pos;
-  drawWalkerBrush(ctx, { x: pos.x, y: pos.y, h: WALKER_H, phase, idle: 0, yaw: 1.25 * (pos.seg.kind === 'ledge' && pos.t < pos.seg.turnAt ? -pos.seg.dir : pos.seg.dir), alpha: 1, color: INK, variant: rng(pos.seg.k * 7919 + 3)() < .5 ? 'male' : 'female' });
+  drawWalkerBrush(ctx, { x: pos.x, y: pos.y, h: WALKER_H, phase, idle: 0, slope: pos.slope, yaw: 1.25 * (pos.seg.kind === 'ledge' && pos.t < pos.seg.turnAt ? -pos.seg.dir : pos.seg.dir), alpha: 1, color: INK, variant: rng(pos.seg.k * 7919 + 3)() < .5 ? 'male' : 'female' });
+  // near-side railing, posts, hangers and ropes pass in front of the walker
+  for (const [sl, x, y, rot, al] of frontPieces) { ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.globalAlpha = al; drawPiece(sl); ctx.restore(); }
   ctx.restore();
 
   // moon above everything, soft edge

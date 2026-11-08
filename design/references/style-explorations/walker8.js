@@ -25,8 +25,9 @@
     const fem = o.variant === 'female', dir = yaw >= 0 ? 1 : -1;
     const g = ((ph / (2 * Math.PI)) % 1 + 1) % 1, mix = (a, b) => lerp(a, b, idle);
     const L1 = .23, L2 = .22, FL = .14, AH = .028;                      // thigh, shank, foot length, ankle height above sole
+    const slope = o.slope || 0, tanS = Math.tan(slope);                  // ground rises tanS per unit forward (climbing > 0)
     function leg(gg) {
-      const a = mix(key(HIP, gg), 2) * D, k = mix(key(KNEE, gg), 4) * D, p = mix(key(FOOT, gg), 0) * D;
+      const a = mix(key(HIP, gg), 2) * D, k = mix(key(KNEE, gg), 4) * D, p = mix(key(FOOT, gg), 0) * D - slope;   // sole follows the incline
       const knee = [L1 * Math.sin(a), -L1 * Math.cos(a)], sa = a - k;
       const ank = [knee[0] + L2 * Math.sin(sa), knee[1] - L2 * Math.cos(sa)];
       const fw = [Math.cos(p), -Math.sin(p)], up = [Math.sin(p), Math.cos(p)];
@@ -35,7 +36,9 @@
       return { knee, ank, heel, toe, up, fw };
     }
     const near = leg(g), far = leg(g + .5); far.far = true;
-    const lowest = Math.min(near.heel[1], near.toe[1], far.heel[1], far.toe[1]);
+    // the lowest foot point, measured against the inclined ground under it, sets the pelvis height
+    const gY = pt => pt[1] - pt[0] * tanS;
+    const lowest = Math.min(gY(near.heel), gY(near.toe), gY(far.heel), gY(far.toe));
     const bob = mix(-.012 * (1 - Math.cos(2 * ph)) / 2, 0);
     const pelvisY = -lowest + bob;
     const leanA = mix(4, 2) * D;
