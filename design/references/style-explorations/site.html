@@ -39,7 +39,28 @@ dialog.joinbox::backdrop{background:rgba(241,237,228,.72);backdrop-filter:blur(2
 .joinbox button[disabled]{opacity:.5;cursor:default}
 .joinbox .status{min-height:1.5em;margin-top:.6em}
 .joinbox .status[data-kind=err]{color:#8a2f25}
-.joinbox form.done label,.joinbox form.done button[type=submit],.joinbox form.done .oauthwrap{display:none}
+.joinbox input[type=radio],.joinbox input[type=checkbox]{display:inline-block;width:auto;margin:0 .35em 0 0;vertical-align:middle;accent-color:var(--ink)}
+.joinbox input[type=file]{display:none}
+.joinbox select{font:inherit;color:var(--ink);background:transparent;border:0;border-bottom:1px solid rgba(28,26,23,.45);padding:0 .1em}
+.joinbox select:disabled{opacity:.4}
+.joinbox .inline{display:inline;margin:0}
+.joinbox .linkish{border:0;background:none;padding:0;font:inherit;color:var(--ink);text-decoration:underline;text-underline-offset:3px;cursor:pointer;opacity:.75}
+.joinbox .linkish:hover{opacity:1}
+.joinbox .picrow{display:flex;gap:14px;align-items:flex-start;margin-top:.7em}
+.joinbox .picrow .opts{line-height:1.9}
+.joinbox .check{margin-top:.8em}
+.joinbox .who{margin-top:.6em;opacity:.65}
+.pic{display:block;flex:0 0 auto;width:56px;height:64px;object-fit:cover}
+img.pic.photo{filter:grayscale(1) contrast(1.05);mix-blend-mode:multiply}
+#people .head{font-style:italic;margin:0 0 .5em}
+#people ul{list-style:none;padding:0;margin:0 0 1em}
+.person{display:flex;gap:14px;align-items:flex-start;padding:.55em 0;border-top:1px solid rgba(28,26,23,.14);cursor:pointer;outline:none}
+.person.plain{cursor:default}
+.person:last-child{border-bottom:1px solid rgba(28,26,23,.14)}
+.person .work{opacity:.65}
+.person .more{display:none;margin-top:.3em}
+.person.open .more{display:block}
+.person:focus-visible{background:rgba(28,26,23,.05)}
 .k{font-style:normal;background:linear-gradient(transparent 22%,rgba(239,199,195,.5) 22%,rgba(239,199,195,.5) 96%,transparent 96%);padding:0 .12em;margin:0 -.1em;border-radius:2px 5px 3px 6px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
 .space{height:1.05em}
 .cue{position:fixed;left:56px;bottom:28px;z-index:7;opacity:.55;transition:opacity .4s}
@@ -59,6 +80,7 @@ dialog.joinbox::backdrop{background:rgba(241,237,228,.72);backdrop-filter:blur(2
 
 <main class="copy">
   <a class="join" href="#join" data-join>Join the Collective</a>
+  <div id="about">
   <p>A collective of <em class="k">interdisciplinary thinkers and builders</em> questioning the boundaries of what is possible.</p>
   <div class="space"></div>
   <p>Some of humanity’s most consequential problems offer no clear path to financial return. Their benefits are widely shared, their timelines uncertain, their solutions a poor fit for existing institutions. So they stay underexplored.</p>
@@ -70,18 +92,41 @@ dialog.joinbox::backdrop{background:rgba(241,237,228,.72);backdrop-filter:blur(2
   <div class="space"></div>
   <p>We look for curiosity, intellectual humility, depth, generosity, imagination, and public purpose. Questions are welcome before they are well formed. Disagreement deepens understanding. <em class="k">Everyone teaches and everyone learns.</em></p>
   <p id="join">We want a world in which our collective knowledge and imagination help humanity pursue <em class="k">possibilities whose value exceeds their immediate financial return</em>. If that sounds like you, <a href="#join" data-join>join the collective</a>.</p>
+  </div>
+  <div id="people" hidden>
+    <p class="head">The people</p>
+    <ul id="peopleList"></ul>
+    <p id="peopleEmpty" hidden>No one is listed yet.</p>
+    <p><a href="#">Back</a></p>
+  </div>
 </main>
 
 <dialog class="joinbox" id="joinDialog" aria-labelledby="joinTitle">
   <button class="x" id="joinClose" type="button" aria-label="Close">×</button>
   <h2 id="joinTitle">Join the Collective</h2>
-  <form id="joinForm" novalidate>
-    <div class="oauthwrap"><div id="joinOauth" hidden></div><p class="or" id="joinOr" hidden>or</p></div>
+  <div id="signinBox">
+    <p>Sign in to join. Then add your name and a few details; you can change them any time.</p>
+    <div id="joinOauth" style="margin-top:.8em"></div>
+    <p id="signinNote" class="who"></p>
+  </div>
+  <form id="profileForm" novalidate hidden>
     <label>Name<input name="name" autocomplete="name" required maxlength="120"></label>
-    <label>Email<input name="email" type="email" autocomplete="email" required maxlength="254"></label>
-    <label>A few words about you <span class="hint">and what you are drawn to. Optional; you can add more later.</span><textarea name="bio" maxlength="2000" rows="3"></textarea></label>
-    <button class="join" type="submit">Join</button>
+    <label>What you do<input name="work" maxlength="160" placeholder="e.g. neuroscientist, writes software, paints"></label>
+    <label>Interests<input name="interests" maxlength="300"></label>
+    <label>A few words about you<textarea name="bio" maxlength="2000" rows="3"></textarea></label>
+    <div class="picrow"><span id="picPreview"></span>
+      <div class="opts">
+        <label class="inline"><input type="radio" name="avatar_kind" value="figure" checked>Ink figure</label>
+        <select name="figure" aria-label="Figure"><option value="male">man</option><option value="female">woman</option></select><br>
+        <label class="inline"><input type="radio" name="avatar_kind" value="photo">Photo:</label>
+        <button type="button" class="linkish" id="usePhoto" hidden>use my sign-in photo</button>
+        <label class="linkish inline">upload<input type="file" id="picUpload" accept="image/jpeg,image/png,image/webp" hidden></label>
+      </div>
+    </div>
+    <label class="check"><input type="checkbox" name="listed">Show me on the People page</label>
+    <button class="join" type="submit" id="saveBtn">Join</button>
     <p class="status" id="joinStatus" role="status" aria-live="polite"></p>
+    <p class="who"><span id="whoami"></span> <button type="button" class="linkish" id="signOut">Sign out</button></p>
   </form>
 </dialog>
 
@@ -91,7 +136,7 @@ dialog.joinbox::backdrop{background:rgba(241,237,228,.72);backdrop-filter:blur(2
 <script src="walker8.js"></script>
 <script src="brushfigure.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="join.js" defer></script>
+<script src="members.js" defer></script>
 <script>
 const { rng, roughen, smooth, pathOf, bbox, wash, contour, cun, dots, pine, mist, fadeBase, rock, INK } = Ink;
 const PAPER = '#f1ede4';
@@ -283,6 +328,8 @@ function frame(now) {
     if (p > 0 && p < 1) { facing = -pos.seg.dir; const c = Math.cos(p * Math.PI); xScale = Math.sign(c || 1) * Math.max(.6, Math.abs(c)); } }
   prevPos = pos;
   drawWalkerBrush(ctx, { x: pos.x, y: pos.y, h: WALKER_H, phase, idle: 0, slope: pos.slope, stepScale, xScale, yaw: 1.25 * facing, alpha: 1, color: INK, variant: rng(pos.seg.k * 7919 + 3)() < .5 ? 'male' : 'female' });
+  { const m = ctx.getTransform(), a = m.transformPoint(new DOMPoint(pos.x - WALKER_H * .4, pos.y - WALKER_H * 1.05)), b = m.transformPoint(new DOMPoint(pos.x + WALKER_H * .4, pos.y + WALKER_H * .05));
+    window.walkerBox = { x0: Math.min(a.x, b.x) / dpr, y0: Math.min(a.y, b.y) / dpr, x1: Math.max(a.x, b.x) / dpr, y1: Math.max(a.y, b.y) / dpr }; }
   // near-side railing, posts, hangers and ropes pass in front of the walker
   // near parts pass in front of the walker only below the knee (posts, deck edge); above that they stay behind the
   // body, so a handrail never cuts the silhouette at the hip. A thin paper gap marks the overlap where they cross.

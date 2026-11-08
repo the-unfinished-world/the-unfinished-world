@@ -1,41 +1,55 @@
-# Sign-ups ("Join the Collective")
+# Members: sign in, profiles, the People view
 
-The site is static (GitHub Pages). Sign-ups go straight from the browser to a free Supabase project:
+The site is static (GitHub Pages). Everything member-related goes from the browser to a free Supabase project:
 
-- Organization: **The Unfinished World** (free plan), project **tuw-collective** (`pzzivuxhfpaiucbfqypw`, us-west-1).
-- Table `public.members`: name, email, bio, provider, user_id, timestamps. It is closed to the public API.
-  The page can only call `join_collective(name, email, bio)` and, once signed in, `my_membership()`. See `schema.sql`.
-- See or export sign-ups: https://supabase.com/dashboard/project/pzzivuxhfpaiucbfqypw/editor (table `members`; export as CSV there).
-- Front end: `join.js` + the `<dialog id="joinDialog">` in `index.html`. The key in `join.js` is the publishable key,
-  which is meant to be public.
+- Organization **The Unfinished World** (free plan), project **tuw-collective** (`pzzivuxhfpaiucbfqypw`, us-west-1).
+- SQL, in order: `schema.sql` (table), then `002_profiles.sql` (sign-in-only profiles, People list, photo bucket).
+- Front end: `members.js` plus the `<dialog id="joinDialog">` and `<div id="people">` in `index.html`.
+  The key in `members.js` is the publishable key, which is meant to be public.
 
-Rules the function enforces: anyone can add a new email; a repeat email from the form is ignored ("already on the list");
-only someone signed in with a provider that verified that same email can change an existing entry.
+## How it works
 
-## Turning on "Continue with Google / X / GitHub"
+- **Joining requires signing in with Google or GitHub.** Email, phone and anonymous sign-in are switched off.
+- After signing in, people fill in name, what they do, interests, a few words about themselves, and a picture.
+  The picture is either an ink figure (man or woman) or a photo: their Google or GitHub photo, or an upload.
+  They can come back and edit any of it.
+- **"Show me on the People page"** is off by default. Only people who tick it appear, and emails are never shown.
+- **The People view** opens by clicking the walker in the scene (the cursor changes over it) or from `#people`.
+  It replaces the text column and has a Back link.
+- The database only exposes three functions: `my_profile()` and `save_profile(...)` for the signed-in person, and
+  `people()` for everyone. The `members` table itself is closed. Photos live in the public `avatars` bucket, and
+  each person can write only to a folder named after their own account.
+- Earlier form sign-ups (before sign-in existed) are kept. When that person signs in with a Google or GitHub account
+  that has the same email, their entry is picked up automatically.
 
-The buttons appear automatically once a provider is switched on. Each provider needs an OAuth app that only the
-account owner can create. Use this callback URL everywhere:
+See or export everyone: https://supabase.com/dashboard/project/pzzivuxhfpaiucbfqypw/editor (table `members`).
+
+## Turning on Google and GitHub (one-time, account owner)
+
+Until a provider is switched on, the dialog says "Sign-in opens soon." The buttons appear by themselves once it is.
+Callback URL for both:
 
     https://pzzivuxhfpaiucbfqypw.supabase.co/auth/v1/callback
 
-1. **Google**: console.cloud.google.com, then APIs & Services, then Credentials, then Create OAuth client ID (Web application).
-   Add the callback URL above as an authorised redirect URI. Set up the consent screen with the app name
-   "The Unfinished World".
-2. **X**: developer.x.com, then a project and app, then User authentication settings. Turn on OAuth 1.0a with
-   "Request email from users", and set the callback URL above.
-3. **GitHub**: github.com/organizations/the-unfinished-world/settings/applications, then New OAuth App. Set the
-   homepage to the site URL and the callback URL to the one above.
+**GitHub** (about 3 minutes)
+1. https://github.com/organizations/the-unfinished-world/settings/applications/new
+2. Application name: The Unfinished World. Homepage URL: https://the-unfinished-world.github.io/the-unfinished-world/
+   Authorization callback URL: the callback URL above. Register application.
+3. Copy the Client ID, then Generate a new client secret and copy it.
+4. https://supabase.com/dashboard/project/pzzivuxhfpaiucbfqypw/auth/providers, then GitHub: enable it, paste both, Save.
 
-Then paste each client ID and secret into Supabase:
-https://supabase.com/dashboard/project/pzzivuxhfpaiucbfqypw/auth/providers
+**Google** (about 10 minutes)
+1. https://console.cloud.google.com, then create a project called "The Unfinished World".
+2. Google Auth Platform (OAuth consent screen): External; app name The Unfinished World; your support email.
+   Scopes: only the defaults (email, profile, openid). Then **Publish app** so anyone can sign in. With only these
+   basic scopes, Google does not require a review.
+3. Clients, then Create client, then Web application. Under Authorised redirect URIs add the callback URL above.
+4. Copy the Client ID and Client secret into the Google provider on the same Supabase providers page, and Save.
 
-Allowed redirect URLs (already set): the GitHub Pages site, http://127.0.0.1:8771 for local preview, and
+Allowed redirect URLs are already set: the GitHub Pages site, http://127.0.0.1:8771 for local preview, and
 https://theunfinishedworld.org for when the domain is live.
 
 ## Free-plan notes
 
-- Supabase can pause a free project after about a week of low activity. Each page load does make one request to it.
-  If it pauses, restore it from the dashboard. Upgrade to Pro ($25/month) if that becomes a problem.
-- No emails are sent; the page shows a confirmation. Sending a welcome email would need an email service (for
-  example Resend) connected in Supabase.
+- Supabase can pause a free project after about a week of low activity. Restore it with one click from the dashboard.
+- No emails are sent; sign-in goes through Google or GitHub.
