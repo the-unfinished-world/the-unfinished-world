@@ -104,3 +104,14 @@ adjectives; the skim test (highlights alone should say who, what we believe, wha
 "different ways of understanding the world meet" / "Everyone teaches and everyone learns." / "possibilities whose value
 exceeds their immediate financial return". Removed: what is possible, across fields, and the four single trait words.
 Treatment kept as the pink wash (rhymes with the moon; wash = idea, underline = action), opacity lowered to .5.
+
+## Walker on the bridge (2026-11-07 late)
+Fixes: near-side rails, posts, hangers, ropes and cable now draw in front of the walker (pieces flagged `front`,
+drawn after the figure); far side and deck behind. Walker takes the deck slope: each foot lands on the incline under
+it, soles parallel to the slope, pelvis from the lower foot measured against the incline. Deck boards reoriented to
+lie across the walkway on all bridges. Fresh contact reviewer (c1 frames) reported flat soles and rails behind the
+body; live re-check showed those frames predate the served script update. To be re-captured and re-reviewed.
+Cantilever: reviewer D scored the first rebuild 3/10 ("sticks"); rebuilt per its numbers as stacked horizontal
+tiers (36/66/96/126px), sleepers, stone cairn on the lower tails, socket line on the upper cliff, knee struts,
+posts from tier tips up to the climbing deck, three stringers between tips. Reviewer E pending.
+Copy: AI-era paragraph added after the "different question" clump; highlight on "the frontier of what is possible".

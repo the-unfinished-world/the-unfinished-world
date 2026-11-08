@@ -8,8 +8,8 @@
   const lerp = (a, b, t) => a + (b - a) * t;
   function key(frames, g) { g = ((g % 1) + 1) % 1; let i = 0; while (i < frames.length - 1 && frames[i + 1][0] <= g) i++; const a = frames[i], b = frames[(i + 1) % frames.length]; const span = (b[0] > a[0] ? b[0] : b[0] + 1) - a[0]; const t = span === 0 ? 0 : (g - a[0]) / span; const s = .5 - .5 * Math.cos(Math.PI * t); return lerp(a[1], b[1], s); }
   const HIP = [[0, 36], [.12, 30], [.5, -22], [.6, -24], [.8, 26], [1, 36]];            // thigh from vertical, + forward
-  const KNEE = [[0, 4], [.12, 16], [.4, 6], [.56, 8], [.68, 44], [.8, 60], [.92, 14], [1, 4]];        // flexion
-  const FOOT = [[0, -12], [.1, -4], [.3, 0], [.45, 12], [.56, 30], [.64, 22], [.74, 4], [.86, -7], [1, -12]];   // sole pitch, + heel up
+  const KNEE = [[0, 6], [.12, 14], [.4, 8], [.56, 10], [.68, 40], [.8, 54], [.92, 16], [1, 6]];        // flexion
+  const FOOT = [[0, -8], [.1, -3], [.3, 0], [.45, 8], [.56, 22], [.64, 16], [.74, 3], [.86, -5], [1, -8]];   // sole pitch, + heel up
   const ARM = [[0, -26], [.5, 26], [1, -26]];                                             // shoulder, + forward
   const ELB = [[0, 28], [.5, 20], [1, 28]];                                               // elbow flexion
   function spline(ctx, pts, closed, k) {
@@ -39,8 +39,8 @@
     // the lowest foot point, measured against the inclined ground under it, sets the pelvis height
     const gY = pt => pt[1] - pt[0] * tanS;
     const lowest = Math.min(gY(near.heel), gY(near.toe), gY(far.heel), gY(far.toe));
-    const bob = mix(-.012 * (1 - Math.cos(2 * ph)) / 2, 0);
-    const pelvisY = -lowest + bob;
+    const bob = mix(-.006 * (1 - Math.cos(2 * ph)) / 2, 0);
+    const rawPelvis = -lowest + bob; const st = (window.__w8 = window.__w8 || {}); const kk = o.variant || 'x'; st[kk] = st[kk] == null ? rawPelvis : st[kk] + (rawPelvis - st[kk]) * .25; const pelvisY = o.idle ? rawPelvis : st[kk];
     const leanA = mix(4, 2) * D;
     const S = (p, noLean) => { let q = p; if (!noLean && p[1] > 0) q = rot(p, [0, 0], -leanA); return { x: x + dir * q[0] * h, y: y - (q[1] + pelvisY) * h }; };
     function arm(gg) {

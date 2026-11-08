@@ -30,7 +30,7 @@
     const c = out.getContext('2d'); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1; c.filter = 'none';
     c.fillStyle = '#fff'; c.fillRect(0, 0, W * S, H * S);
     c.globalCompositeOperation = 'multiply';
-    const t = (o.phase || 0) * .35;
+    const t = (o.phase || 0) * .12;
     const e = Math.min(.7, h * .005); const offs = [[0, 0, 1], [Math.cos(t) * e, Math.sin(t * 1.3) * e * .8, .45]];
     for (const [dx, dy, a] of offs) { c.globalAlpha = a; c.drawImage(mer, dx * S, dy * S); }
     c.filter = 'none'; c.globalAlpha = 1;
