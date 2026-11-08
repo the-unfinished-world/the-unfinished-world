@@ -1,0 +1,34 @@
+<!doctype html><html><head><meta charset="utf-8"><title>gait lab</title>
+<style>body{margin:0;background:#f1ede4;font:13px system-ui;color:#555}canvas{display:block}</style></head><body>
+<canvas id="c" width="1440" height="1500"></canvas>
+<script src="walker8.js"></script>
+<script>
+// One gait cycle, flat and on a 35 degree incline. Strip: 12 poses spaced apart. Trace: body advancing at constant speed,
+// red = hip path, dark grey = near ankle, light grey = far ankle; the bob figure is the hip's rise and fall per step.
+const ctx=document.getElementById('c').getContext('2d'), H=160, N=12;
+const stride = window.walker8Stride || (s => .84);
+const lab=(t,x,y)=>{ctx.fillStyle='#8a857a';ctx.font='13px system-ui';ctx.fillText(t,x,y);};
+function strip(y0, slope, label){
+  const tanS=Math.tan(slope); lab(label, 20, y0-H*1.2); window.__w8={};
+  for(let i=0;i<N*2;i++){ const ph=i/N*2*Math.PI; walker8Rig({x:0,y:0,h:H,phase:ph,variant:'male',slope,idle:0}); }   // warm any smoothing
+  for(let i=0;i<N;i++){ const ph=i/N*2*Math.PI, x=90+i*110, y=y0;
+    ctx.strokeStyle='#cfc9bd'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x-45,y+45*tanS); ctx.lineTo(x+45,y-45*tanS); ctx.stroke();
+    drawWalker8(ctx,{x,y,h:H,phase:ph,variant:'male',slope,idle:0,color:'#1d1b18'}); lab((i/N*100).toFixed(0)+'%', x-12, y+30); }
+}
+function trace(y0, slope, label){
+  const tanS=Math.tan(slope), cyc=stride(slope)*H, M=48, x0=120; lab(label, 20, y0-150); window.__w8={};
+  const hip=[], aN=[], aF=[];
+  for(let i=0;i<=M*3;i++){ const ph=i/M*2*Math.PI, x=x0+i*cyc/M, y=y0-i*cyc/M*tanS, r=walker8Rig({x,y,h:H,phase:ph,variant:'male',slope,idle:0});
+    if(i<M) continue; hip.push(r.S([0,0],true)); aN.push(r.S(r.near.ank,true)); aF.push(r.S(r.far.ank,true)); }
+  const line=(pts,c,w)=>{ctx.strokeStyle=c;ctx.lineWidth=w;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();};
+  ctx.strokeStyle='#cfc9bd'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0+cyc*3, y0-cyc*3*tanS); ctx.stroke();
+  line(aF,'#cfc9bd',2); line(aN,'#8a857a',2); line(hip,'#c0392b',2.5);
+  const hy=hip.map((p,i)=>p.y+(p.x-hip[0].x)*tanS), bob=(Math.max(...hy)-Math.min(...hy))/H*100;
+  const sep=Math.max(...aN.map((p,i)=>Math.abs(p.x-aF[i].x)))/H*100;
+  lab('hip bob '+bob.toFixed(1)+'% of height  |  max foot separation '+sep.toFixed(0)+'% of height  |  horizontal stride per cycle '+(cyc/H*100).toFixed(0)+'%', x0, y0+40);
+}
+strip(300, 0, 'FLAT: one gait cycle, 12 poses');
+trace(560, 0, 'FLAT: traces over two cycles (red hip, grey ankles)');
+strip(980, Math.atan(.7), '35 DEGREE INCLINE (as on the bridges): one gait cycle, 12 poses');
+trace(1420, Math.atan(.7), '35 DEGREE INCLINE: traces over two cycles');
+</script></body></html>

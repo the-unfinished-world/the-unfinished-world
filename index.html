@@ -87,7 +87,7 @@ function cached(key, x0, y0, w, h, render) {
 const drawPiece = sl => Bridges.drawPiece(ctx, sl);
 
 // ---------- world --------------------------------------------------------------------
-const STEP = 215, GORGE_L = 800, GORGE_R = 1080, DECK_W = 110, WALKER_H = 100, SPEED = 58;
+const STEP = 215, GORGE_L = 800, GORGE_R = 1080, DECK_W = 110, WALKER_H = 100, SPEED = 38;
 const ledges = new Map(), bridges = new Map();
 function ledge(k) {
   if (ledges.has(k)) return ledges.get(k);
@@ -129,7 +129,15 @@ function extendRoute(upToK) {
 }
 function walkerAt(dist) { extendRoute(Math.floor(dist / 450) + 3); let seg = route[0]; for (const s of route) { if (dist >= s.s0) seg = s; else break; } const t = Math.min(1, (dist - seg.s0) / seg.len); const a = seg.fn(Math.max(0, t - .01)), b = seg.fn(Math.min(1, t + .01)); const slope = seg.kind === 'bridge' ? Math.atan2(-(b.y - a.y), Math.abs(b.x - a.x) || 1) : 0; return Object.assign(seg.fn(t), { seg, t, slope }); }
 const LEAD = 140;
-function lockTime(Bk, u) { const sgm = route.find(s => s.kind === 'bridge' && s.k === Bk.k); return (sgm.s0 + u * Bk.len - LEAD) / SPEED; }
+// ---- walking pace: steady on the bridges, easing to a slow pivot at each ledge turn; time <-> distance table ----
+function turnGap(d) { extendRoute(Math.floor(d / 450) + 3); let g = 1e9; for (const sg of route) if (sg.kind === 'ledge') g = Math.min(g, Math.abs(d - (sg.s0 + sg.turnAt * sg.len))); return g; }
+const easeGap = g => { const u = Math.min(1, g / 28); return u * u * (3 - 2 * u); };
+const vAt = d => SPEED * (.22 + .78 * easeGap(turnGap(d)));
+const TD = { t: [0], d: [0], dt: 1 / 120 };
+function extendTD(tNeed, dNeed) { while (TD.t[TD.t.length - 1] < tNeed || TD.d[TD.d.length - 1] < dNeed) { const i = TD.t.length - 1; TD.t.push(TD.t[i] + TD.dt); TD.d.push(TD.d[i] + vAt(TD.d[i] + 40) * TD.dt); } }
+function distAt(T) { T = Math.max(0, T); extendTD(T + .1, 0); const f = T / TD.dt, i = Math.floor(f); return lerp(TD.d[i], TD.d[i + 1], f - i) + 40; }
+function timeAt(dist) { const w = dist - 40; if (w <= 0) return w / SPEED; extendTD(0, w + 1); let lo = 0, hi = TD.d.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (TD.d[m] < w) lo = m; else hi = m; } return lerp(TD.t[lo], TD.t[hi], (w - TD.d[lo]) / ((TD.d[hi] - TD.d[lo]) || 1)); }
+function lockTime(Bk, u) { const sgm = route.find(s => s.kind === 'bridge' && s.k === Bk.k); return timeAt(sgm.s0 + u * Bk.len - LEAD); }
 
 // ---------- painted elements (cached) ------------------------------------------------
 function drawLedge(L) {
@@ -200,7 +208,7 @@ function drawMistBand(i) {
 // ---------- main loop ----------------------------------------------------------------
 const t0 = performance.now() - 1000 * (parseFloat(new URLSearchParams(location.search).get('t')) || 0); const cam = { y: 0 }; let phase = 0, prevPos = null;
 function frame(now) {
-  const T = (now - t0) / 1000, dist = T * SPEED + 40, pos = walkerAt(dist);
+  const T = (now - t0) / 1000, dist = distAt(T), pos = walkerAt(dist);
   const targetY = pos.y - 900 * .60 + 450; cam.y = prevPos ? lerp(cam.y, targetY, .05) : targetY;
   const altitude = -pos.y / STEP;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
@@ -233,9 +241,14 @@ function frame(now) {
       Bridges.place(ctx, sl, x, y, rot, al);
     }
   }
-  if (prevPos) { const ds = Math.hypot(pos.x - prevPos.x, pos.y - prevPos.y); phase += (ds / (.84 * WALKER_H)) * Math.PI * 2; }
+  const gapNow = turnGap(dist), stepScale = .55 + .45 * easeGap(gapNow);
+  if (prevPos) { const dx = Math.abs(pos.x - prevPos.x); phase += (dx / (walker8Stride(pos.slope) * stepScale * WALKER_H)) * Math.PI * 2; }
+  // facing: through the ledge pivot the silhouette narrows (three-quarter view) instead of flipping in one frame
+  let facing = pos.seg.kind === 'ledge' && pos.t < pos.seg.turnAt ? -pos.seg.dir : pos.seg.dir, xScale = 1;
+  if (pos.seg.kind === 'ledge') { const tp = pos.seg.s0 + pos.seg.turnAt * pos.seg.len, W = 12, p = Math.max(0, Math.min(1, (dist - (tp - W)) / (2 * W)));
+    if (p > 0 && p < 1) { facing = -pos.seg.dir; const c = Math.cos(p * Math.PI); xScale = Math.sign(c || 1) * Math.max(.28, Math.abs(c)); } }
   prevPos = pos;
-  drawWalkerBrush(ctx, { x: pos.x, y: pos.y, h: WALKER_H, phase, idle: 0, slope: pos.slope, yaw: 1.25 * (pos.seg.kind === 'ledge' && pos.t < pos.seg.turnAt ? -pos.seg.dir : pos.seg.dir), alpha: 1, color: INK, variant: rng(pos.seg.k * 7919 + 3)() < .5 ? 'male' : 'female' });
+  drawWalkerBrush(ctx, { x: pos.x, y: pos.y, h: WALKER_H, phase, idle: 0, slope: pos.slope, stepScale, xScale, yaw: 1.25 * facing, alpha: 1, color: INK, variant: rng(pos.seg.k * 7919 + 3)() < .5 ? 'male' : 'female' });
   // near-side railing, posts, hangers and ropes pass in front of the walker
   // near parts that cross the black figure get a thin paper gap first, so the overlap reads as in front
   ctx.save(); ctx.beginPath(); ctx.rect(pos.x - WALKER_H * .65, pos.y - WALKER_H * 1.2, WALKER_H * 1.3, WALKER_H * 1.28); ctx.clip();

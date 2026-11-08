@@ -18,46 +18,82 @@
     for (let i = 0; i < (closed ? n : n - 1); i++) { const p0 = P(i - 1), p1 = P(i), p2 = P(i + 1), p3 = P(i + 2); ctx.bezierCurveTo(p1.x + (p2.x - p0.x) * k / 3, p1.y + (p2.y - p0.y) * k / 3, p2.x - (p3.x - p1.x) * k / 3, p2.y - (p3.y - p1.y) * k / 3, p2.x, p2.y); }
     if (closed) ctx.closePath();
   }
+  // ---- gait tuning (fractions of height H; degrees). Flat and 35-degree-climb targets, blended by slope. ----------
+  // Targets from a gait review (stair-pitch norms on the bridges): step 36% H flat / ~23% H along a 35 deg slope,
+  // stance 61/64%, hip bob 2.2% / 3.5% H, toe-up strike 20 / 8 deg, heel-off 32% / 23%, push-off 30 / 40 deg,
+  // trunk lean 3 / 13 deg, arms +/-13 deg (centred forward when climbing), elbow 13 back to 37 front, arms lag 6%.
+  const GAIT = {
+    flat:  { step: .28, stance: .61, bob: .025, strikePitch: -20, flatFrom: .08, riseFrom: .32, toeOffPitch: 30, clearance: .03, lean: 3, lead: 0, armFwd: 0, peakAt: .3 },
+    climb: { step: .205, stance: .64, bob: .035, strikePitch: -8, flatFrom: .06, riseFrom: .23, toeOffPitch: 40, clearance: .046, lean: 13, lead: .5, armFwd: 6, peakAt: .4 },
+    arm: 13, elbowBack: 13, elbowFwd: 37, armLag: .06, reachMargin: .995 };
+  const gaitAt = slope => { const k = Math.min(1, Math.abs(Math.tan(slope)) / .7), o = {}; for (const key in GAIT.flat) o[key] = GAIT.flat[key] + (GAIT.climb[key] - GAIT.flat[key]) * k; return o; };
+  const stepLen = slope => gaitAt(slope).step;                                // horizontal step length, in heights
+  window.walker8Stride = slope => 2 * stepLen(slope);                         // horizontal distance per gait cycle
+  window.walker8Gait = GAIT;
+  const H0cache = new Map();
+  function hipBase(slope, Ls, foot, shear, wave, reach) {                    // highest base hip height both legs can reach all cycle
+    const key = [slope, Ls].map(v => Math.round(v * 1000)).join(':') + ':' + JSON.stringify(GAIT).length;
+    if (H0cache.has(key)) return H0cache.get(key);
+    let H0 = 1;
+    for (let i = 0; i < 96; i++) { const gg = i / 96;
+      for (const F of [foot(gg), foot(gg + .5)]) { const a = shear(F.ank); const dx = Math.abs(a[0]); if (dx < reach) H0 = Math.min(H0, a[1] + Math.sqrt(reach * reach - dx * dx) * GAIT.reachMargin - wave(gg)); } }
+    H0cache.set(key, H0); return H0;
+  }
   const rot = (p, c, a) => { const s = Math.sin(a), co = Math.cos(a), dx = p[0] - c[0], dy = p[1] - c[1]; return [c[0] + dx * co - dy * s, c[1] + dx * s + dy * co]; };
 
   function rig(o) {
     const { x, y, h } = o, ph = o.phase || 0, idle = o.idle || 0, yaw = o.yaw == null ? 1 : o.yaw;
     const fem = o.variant === 'female', dir = yaw >= 0 ? 1 : -1;
     const g = ((ph / (2 * Math.PI)) % 1 + 1) % 1, mix = (a, b) => lerp(a, b, idle);
-    const L1 = .23, L2 = .22, FL = .14, AH = .028;                      // thigh, shank, foot length, ankle height above sole
-    const slope = o.slope || 0, tanS = Math.tan(slope);                  // ground rises tanS per unit forward (climbing > 0)
-    function leg(gg) {
-      const a = mix(key(HIP, gg), 2) * D, k = mix(key(KNEE, gg), 4) * D, p = mix(key(FOOT, gg), 0) * D;   // flat-ground gait; the incline is applied below
-      const knee = [L1 * Math.sin(a), -L1 * Math.cos(a)], sa = a - k;
-      const ank = [knee[0] + L2 * Math.sin(sa), knee[1] - L2 * Math.cos(sa)];
-      const fw = [Math.cos(p), -Math.sin(p)], up = [Math.sin(p), Math.cos(p)];
-      const heel = [ank[0] - up[0] * AH - fw[0] * FL * .35, ank[1] - up[1] * AH - fw[1] * FL * .35];
-      const toe = [heel[0] + fw[0] * FL, heel[1] + fw[1] * FL];
-      return { knee, ank, heel, toe, up, fw };
+    const L1 = .23, L2 = .22, FL = .14, AH = .028, reach = L1 + L2 - 1e-3;
+    const slope = o.slope || 0, tanS = Math.tan(slope), G = gaitAt(slope), xs = o.xScale == null ? 1 : o.xScale;
+    // ---- feet first: stance foot locked to the ground, swing foot on a smooth arc, heel-strike / roll / toe-off ----
+    const Ls = G.step * (o.stepScale == null ? 1 : o.stepScale), ST = G.stance, smooth = u => u * u * (3 - 2 * u);
+    const pose = (x, p, pivot) => {                       // foot from ankle-x reference, pitch p (deg, + = heel up)
+      const r = p * D, f = [Math.cos(r), -Math.sin(r)], n = [Math.sin(r), Math.cos(r)];
+      let heel, toe;
+      if (pivot === 'toe') { toe = [x + .75 * FL, 0]; heel = [toe[0] - FL * f[0], toe[1] - FL * f[1]]; }
+      else { heel = [x - .25 * FL, 0]; toe = [heel[0] + FL * f[0], heel[1] + FL * f[1]]; }
+      const ank = [heel[0] + .25 * FL * f[0] + AH * n[0], heel[1] + .25 * FL * f[1] + AH * n[1]];
+      return { heel, toe, ank, f, n };
+    };
+    const stanceFoot = gg => { const x = ST * Ls * (1 - 2 * gg / ST);
+      if (gg < G.flatFrom) return pose(x, G.strikePitch * (1 - smooth(gg / G.flatFrom)), 'heel');
+      if (gg < G.riseFrom) return pose(x, 0, 'heel');
+      const u = (gg - G.riseFrom) / (ST - G.riseFrom); return pose(x, G.toeOffPitch * u * u * smooth(u), 'toe'); };
+    const A0 = stanceFoot(ST - 1e-6), A1 = stanceFoot(0);
+    function foot(gg) {
+      gg = ((gg % 1) + 1) % 1;
+      if (gg < ST) return stanceFoot(gg);
+      const u = (gg - ST) / (1 - ST), m = -2 * Ls * (1 - ST);                     // Hermite: ends match the stance foot's velocity
+      const h00 = 2 * u * u * u - 3 * u * u + 1, h10 = u * u * u - 2 * u * u + u, h01 = -2 * u * u * u + 3 * u * u, h11 = u * u * u - u * u;
+      const ax = h00 * A0.ank[0] + h10 * m + h01 * A1.ank[0] + h11 * m;
+      const ay = A0.ank[1] + (A1.ank[1] - A0.ank[1]) * smooth(u) + G.clearance * Math.pow(Math.sin(Math.PI * u), 1.3);
+      const p = G.toeOffPitch * (1 - smooth(Math.min(1, u / .4))) + G.strikePitch * smooth(Math.max(0, (u - .55) / .45));
+      const r = p * D, f = [Math.cos(r), -Math.sin(r)], n = [Math.sin(r), Math.cos(r)];
+      const heel = [ax - .25 * FL * f[0] - AH * n[0], ay - .25 * FL * f[1] - AH * n[1]];
+      return { heel, toe: [heel[0] + FL * f[0], heel[1] + FL * f[1]], ank: [ax, ay], f, n };
     }
-    const near = leg(g), far = leg(g + .5); far.far = true;
-    // Put the flat gait onto the incline: every foot point rises by x*tanS (x = forward of the hip), then each
-    // knee is re-solved with two-bone IK so the leg actually reaches its foot. If a downhill foot is out of reach,
-    // the hip drops until it is not. Ground origin: the flat gait's lowest point, directly under the hip.
-    const lowestFlat = Math.min(near.heel[1], near.toe[1], far.heel[1], far.toe[1]);
-    const shear = pt => [pt[0], pt[1] + pt[0] * tanS];
-    for (const Lg of [near, far]) { Lg.ank = shear(Lg.ank); Lg.heel = shear(Lg.heel); Lg.toe = shear(Lg.toe); }
-    const reach = L1 + L2 - 1e-3; let drop = 0;
-    for (const Lg of [near, far]) { const [ax, ay] = Lg.ank; if (Math.hypot(ax, ay) > reach) drop = Math.max(drop, -ay - Math.sqrt(Math.max(0, reach * reach - ax * ax))); }
-    if (drop > 0) for (const Lg of [near, far]) for (const kk of ['ank', 'heel', 'toe']) Lg[kk] = [Lg[kk][0], Lg[kk][1] + drop];
+    const lead = G.lead * reach * Math.sin(Math.max(0, slope));               // climbing: feet placed ahead of the hip
+    const shear = pt => [pt[0] + lead, pt[1] + (pt[0] + lead) * tanS];              // onto the incline: flat soles become slope-parallel
+    const legFrom = (F, isFar) => ({ ank: shear(F.ank), heel: shear(F.heel), toe: shear(F.toe), far: isFar });
+    const near = legFrom(foot(g), false), far = legFrom(foot(g + .5), true);
+    // ---- hip: a gentle wave, highest at mid-stance, capped so both legs always reach (no crouch) ----
+    const wave = gg => .5 * G.bob * Math.cos(4 * Math.PI * (gg - G.peakAt));
+    const H0 = hipBase(slope, Ls, foot, shear, wave, reach);
+    const pelvisY = mix(H0 + wave(g), H0 + .5 * G.bob);
     for (const Lg of [near, far]) {
-      const [ax, ay] = Lg.ank, dd = Math.min(Math.hypot(ax, ay), reach), th = Math.atan2(ay, ax), A = Math.acos(Math.max(-1, Math.min(1, (L1 * L1 + dd * dd - L2 * L2) / (2 * L1 * dd))));
+      const ax = Lg.ank[0], ay = Lg.ank[1] - pelvisY, dd = Math.min(Math.hypot(ax, ay), reach), th = Math.atan2(ay, ax);
+      const A = Math.acos(Math.max(-1, Math.min(1, (L1 * L1 + dd * dd - L2 * L2) / (2 * L1 * dd))));
       const k1 = [L1 * Math.cos(th + A), L1 * Math.sin(th + A)], k2 = [L1 * Math.cos(th - A), L1 * Math.sin(th - A)];
-      Lg.knee = k1[0] > k2[0] ? k1 : k2;                                   // knees bend forward
+      Lg.knee = k1[0] > k2[0] ? k1 : k2;                                          // knees bend forward
+      for (const kk of ['ank', 'heel', 'toe']) Lg[kk] = [Lg[kk][0], Lg[kk][1] - pelvisY];   // to hip-relative coordinates
       const fx = Lg.toe[0] - Lg.heel[0], fy = Lg.toe[1] - Lg.heel[1], fl = Math.hypot(fx, fy) || 1; Lg.fw = [fx / fl, fy / fl]; Lg.up = [-Lg.fw[1], Lg.fw[0]];
     }
-    const lowest = lowestFlat + drop;
-    const bob = mix(-.006 * (1 - Math.cos(2 * ph)) / 2, 0);
-    const rawPelvis = -lowest + bob; const st = (window.__w8 = window.__w8 || {}); const kk = o.variant || 'x'; st[kk] = st[kk] == null ? rawPelvis : st[kk] + (rawPelvis - st[kk]) * .25; const pelvisY = o.idle ? rawPelvis : st[kk];
-    const leanA = mix(4, 2) * D;
-    const S = (p, noLean) => { let q = p; if (!noLean && p[1] > 0) q = rot(p, [0, 0], -leanA); return { x: x + dir * q[0] * h, y: y - (q[1] + pelvisY) * h }; };
+    const leanA = mix(G.lean, 2) * D;
+    const S = (p, noLean) => { let q = p; if (!noLean && p[1] > 0) q = rot(p, [0, 0], -leanA); return { x: x + dir * q[0] * h * xs, y: y - (q[1] + pelvisY) * h }; };
     function arm(gg) {
-      const sa = mix(key(ARM, gg), 0) * D, fl = mix(key(ELB, gg), 18) * D;
+      const ga = gg - GAIT.armLag, c = Math.cos(2 * Math.PI * ga), sa = mix(G.armFwd - GAIT.arm * c, 0) * D, fl = mix(GAIT.elbowBack + (GAIT.elbowFwd - GAIT.elbowBack) * (.5 - .5 * c), 15) * D;
       const sh = fem ? [-.038, .285] : [-.042, .305];
       const el = [sh[0] + .15 * Math.sin(sa), sh[1] - .15 * Math.cos(sa)];
       const fa = sa + fl;
@@ -70,6 +106,7 @@
   const BODY_M = [[.33, .02], [.32, .046], [.27, .066], [.22, .064], [.16, .052], [.10, .043], [.04, .046], [0, .052], [-.03, .03], [-.035, -.03], [.0, -.06], [.04, -.072], [.09, -.063], [.15, -.057], [.21, -.062], [.26, -.074], [.30, -.084], [.325, -.072], [.335, -.03]];
   const BODY_F = [[.31, .02], [.30, .042], [.24, .072], [.19, .05], [.12, .04], [.06, .046], [0, .052], [-.03, .028], [-.035, -.036], [.03, -.082], [.10, -.056], [.18, -.058], [.25, -.072], [.285, -.078], [.305, -.064], [.315, -.03]];
 
+  window.walker8Rig = rig;   // exposed for the gait lab
   window.drawWalker8 = function (ctx, o) {
     const r = rig(o); const { h, fem, S, near, far, armN, armF, pitch } = r;
     ctx.save(); ctx.fillStyle = ctx.strokeStyle = o.color || '#1d1b18'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
