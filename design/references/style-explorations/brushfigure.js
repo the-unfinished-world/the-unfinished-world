@@ -37,9 +37,9 @@
     if (window.drawWalker8Lines && o.variant) { c.globalCompositeOperation = 'source-over'; c.save(); c.setTransform(S, 0, 0, S, 0, 0); drawWalker8Lines(c, Object.assign({}, o, { x: ox, y: oy, lineColor: '#fff' })); c.restore(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'multiply'; }
     // pooled ink low on the figure (feet and hem), lighter wash high (shoulders catch the light)
     c.globalCompositeOperation = 'screen';
-    const g = c.createLinearGradient(0, (oy - h) * S, 0, oy * S); g.addColorStop(0, 'rgba(255,255,255,.16)'); g.addColorStop(.55, 'rgba(255,255,255,.06)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    const g = c.createLinearGradient(0, (oy - h) * S, 0, oy * S); g.addColorStop(0, 'rgba(255,255,255,.07)'); g.addColorStop(.55, 'rgba(255,255,255,.03)'); g.addColorStop(1, 'rgba(255,255,255,0)');
     c.fillStyle = g; c.fillRect(0, 0, W * S, H * S);
-    c.globalCompositeOperation = 'lighten'; c.globalAlpha = .2;
+    c.globalCompositeOperation = 'lighten'; c.globalAlpha = .13;
     const gx = Math.floor((o.x * 3) % 128), gy = Math.floor((o.y * 2) % 128);
     for (let yy = -gy; yy < H * S; yy += 256) for (let xx = -gx; xx < W * S; xx += 256) c.drawImage(grain, xx, yy);
     c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';

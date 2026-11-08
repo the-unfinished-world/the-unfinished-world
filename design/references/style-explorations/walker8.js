@@ -23,21 +23,29 @@
   // stance 61/64%, hip bob 2.2% / 3.5% H, toe-up strike 20 / 8 deg, heel-off 32% / 23%, push-off 30 / 40 deg,
   // trunk lean 3 / 13 deg, arms +/-13 deg (centred forward when climbing), elbow 13 back to 37 front, arms lag 6%.
   const GAIT = {
-    flat:  { step: .28, stance: .61, bob: .025, strikePitch: -20, flatFrom: .08, riseFrom: .32, toeOffPitch: 30, clearance: .03, lean: 3, lead: 0, armFwd: 0, peakAt: .3 },
-    climb: { step: .205, stance: .64, bob: .035, strikePitch: -8, flatFrom: .06, riseFrom: .23, toeOffPitch: 40, clearance: .046, lean: 13, lead: .5, armFwd: 6, peakAt: .4 },
-    arm: 13, elbowBack: 13, elbowFwd: 37, armLag: .06, reachMargin: .995 };
+    flat:  { step: .31, stance: .61, bob: .025, strikePitch: -20, flatFrom: .08, riseFrom: .32, toeOffPitch: 30, clearance: .03, lean: 3, lead: 0, armFwd: 0, kneeMin: 5, riseExp: 2 },
+    climb: { step: .205, stance: .64, bob: .025, strikePitch: -8, flatFrom: .06, riseFrom: .23, toeOffPitch: 40, clearance: .06, lean: 13, lead: .26, armFwd: 5, kneeMin: 7, riseExp: 1.5 },
+    arm: 16, elbowBack: 10, elbowFwd: 20, armLag: .06, reachMargin: .995 };
   const gaitAt = slope => { const k = Math.min(1, Math.abs(Math.tan(slope)) / .7), o = {}; for (const key in GAIT.flat) o[key] = GAIT.flat[key] + (GAIT.climb[key] - GAIT.flat[key]) * k; return o; };
   const stepLen = slope => gaitAt(slope).step;                                // horizontal step length, in heights
   window.walker8Stride = slope => 2 * stepLen(slope);                         // horizontal distance per gait cycle
   window.walker8Gait = GAIT;
-  const H0cache = new Map();
-  function hipBase(slope, Ls, foot, shear, wave, reach) {                    // highest base hip height both legs can reach all cycle
-    const key = [slope, Ls].map(v => Math.round(v * 1000)).join(':') + ':' + JSON.stringify(GAIT).length;
-    if (H0cache.has(key)) return H0cache.get(key);
-    let H0 = 1;
-    for (let i = 0; i < 96; i++) { const gg = i / 96;
-      for (const F of [foot(gg), foot(gg + .5)]) { const a = shear(F.ank); const dx = Math.abs(a[0]); if (dx < reach) H0 = Math.min(H0, a[1] + Math.sqrt(reach * reach - dx * dx) * GAIT.reachMargin - wave(gg)); } }
-    H0cache.set(key, H0); return H0;
+  // Hip height per phase: as high as both legs allow with the knee at least kneeMin bent, smoothed, then the
+  // up-down travel squeezed down to the bob budget. The stance knee straightens as the body passes over the foot
+  // (no crouch), and the hip never rises out of reach (no hyper-extension).
+  const HCURVE = new Map(), NH = 96;
+  function hipCurve(slope, Ls, foot, shear, G) {
+    const key = [slope, Ls].map(v => Math.round(v * 1000)).join(':') + ':' + JSON.stringify(GAIT);
+    if (HCURVE.has(key)) return HCURVE.get(key);
+    const L1 = .23, L2 = .22, th = G.kneeMin * D, R = Math.sqrt(L1 * L1 + L2 * L2 + 2 * L1 * L2 * Math.cos(th));
+    const C = []; for (let i = 0; i < NH; i++) { let c = 1; const gg = i / NH;
+      for (const F of [foot(gg), foot(gg + .5)]) { const a = shear(F.ank), dx = Math.min(Math.abs(a[0]), R * .999); c = Math.min(c, a[1] + Math.sqrt(R * R - dx * dx)); }
+      C.push(c); }
+    let H = C.slice();                                    // smooth from below: never above the reach cap
+    for (let it = 0; it < 15; it++) { const B = H.map((_, i) => (H[(i + NH - 2) % NH] + 2 * H[(i + NH - 1) % NH] + 3 * H[i] + 2 * H[(i + 1) % NH] + H[(i + 2) % NH]) / 9); H = B.map((v, i) => Math.min(v, C[i])); }
+    const lo = Math.min(...H), hi = Math.max(...H), k = hi - lo > G.bob ? G.bob / (hi - lo) : 1;
+    H = H.map(v => lo + (v - lo) * k);
+    HCURVE.set(key, H); return H;
   }
   const rot = (p, c, a) => { const s = Math.sin(a), co = Math.cos(a), dx = p[0] - c[0], dy = p[1] - c[1]; return [c[0] + dx * co - dy * s, c[1] + dx * s + dy * co]; };
 
@@ -60,7 +68,7 @@
     const stanceFoot = gg => { const x = ST * Ls * (1 - 2 * gg / ST);
       if (gg < G.flatFrom) return pose(x, G.strikePitch * (1 - smooth(gg / G.flatFrom)), 'heel');
       if (gg < G.riseFrom) return pose(x, 0, 'heel');
-      const u = (gg - G.riseFrom) / (ST - G.riseFrom); return pose(x, G.toeOffPitch * u * u * smooth(u), 'toe'); };
+      const u = (gg - G.riseFrom) / (ST - G.riseFrom); return pose(x, G.toeOffPitch * Math.pow(u, G.riseExp) * smooth(u), 'toe'); };
     const A0 = stanceFoot(ST - 1e-6), A1 = stanceFoot(0);
     function foot(gg) {
       gg = ((gg % 1) + 1) % 1;
@@ -78,10 +86,9 @@
     const shear = pt => [pt[0] + lead, pt[1] + (pt[0] + lead) * tanS];              // onto the incline: flat soles become slope-parallel
     const legFrom = (F, isFar) => ({ ank: shear(F.ank), heel: shear(F.heel), toe: shear(F.toe), far: isFar });
     const near = legFrom(foot(g), false), far = legFrom(foot(g + .5), true);
-    // ---- hip: a gentle wave, highest at mid-stance, capped so both legs always reach (no crouch) ----
-    const wave = gg => .5 * G.bob * Math.cos(4 * Math.PI * (gg - G.peakAt));
-    const H0 = hipBase(slope, Ls, foot, shear, wave, reach);
-    const pelvisY = mix(H0 + wave(g), H0 + .5 * G.bob);
+    // ---- hip: follows what the legs can reach each phase (see hipCurve) ----
+    const HC = hipCurve(slope, Ls, foot, shear, G), fi = g * NH, i0 = Math.floor(fi) % NH, hipAt = HC[i0] + (HC[(i0 + 1) % NH] - HC[i0]) * (fi - Math.floor(fi));
+    const pelvisY = mix(hipAt, Math.max(...HC));
     for (const Lg of [near, far]) {
       const ax = Lg.ank[0], ay = Lg.ank[1] - pelvisY, dd = Math.min(Math.hypot(ax, ay), reach), th = Math.atan2(ay, ax);
       const A = Math.acos(Math.max(-1, Math.min(1, (L1 * L1 + dd * dd - L2 * L2) / (2 * L1 * dd))));
