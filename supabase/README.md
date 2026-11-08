@@ -58,4 +58,4 @@ https://theunfinishedworld.org for when the domain is live.
 ## Free-plan notes
 
 - Supabase can pause a free project after about a week of low activity. Restore it with one click from the dashboard.
-- No emails are sent; sign-in goes through Google or GitHub.
+- No emails are sent; sign-in goes through Google.
