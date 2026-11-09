@@ -75,6 +75,11 @@ Between motions (one step to the next, setting down, stepping up, picking up) th
 the new motion over about a third of a second; within a cycle (place, then hammer; one throw, then the next) the end
 of one motion eases into the start of the next.
 
+## The landing-page walker
+
+The walker builds each bridge in turn with the same builder as play, once it has turned on the ledge. A rope bridge
+leaves it on the far landing, already facing along the ledge, so it goes straight on to the next spot.
+
 ## How it is built
 
 Each bridge type gets a build script: a list of steps, each with its motion clip(s), tool, how long it takes, which

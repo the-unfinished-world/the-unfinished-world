@@ -43,10 +43,8 @@ only collides in its front band (`PhysShapes.clip`), since below that it is pain
 Starting play: any movement key (arrows / WASD / Space) takes the walker right where it is, with the text still on the
 left. Esc or Leave hands the walk back. (Full-screen play, `enterPlay(true)`, exists but has no button at present.)
 
-Bridges build as you go: each bridge keeps a built stretch along its length. In play, your approach grows it from the
-end you come from (slightly faster than a run, a short lead ahead), its pieces fly in as the stretch reaches them, and
-its deck collider covers only the built stretch: step off the built end and you fall. What the stroller had built
-before you took over stays built.
+Bridges are built by someone (see below): a bridge's deck collider covers only the stretch laid so far, so stepping off
+the built end you fall. What the walker had built before you took over stays built.
 
 The scene supplies shapes through one adapter (`sceneShapes(kFrom, kTo)` in `index.html`): ledge outlines, rock
 pinnacles, the gorge walls and the bridge decks. Painting and physics read the same geometry functions.
@@ -63,8 +61,13 @@ working; walking away pauses it and it resumes where it stopped. Nothing builds 
 
 - Shared and lasting: built bridges are saved (Supabase) and stay for every visitor; the gorge is built up together.
   Several people can build and walk at once.
-- The stroller on the landing page also stops on each ledge and builds the next bridge with the same animation (its
-  work is not saved).
+- The walker on the landing page also stops on each ledge and builds the next bridge with the same builder
+  (`buildTick` in `index.html`, the same scripts in `build.js`). Its walk is a function of time, so each build is
+  recorded ahead of time when the walk reaches it (an episode, about 2 ms to record) and becomes a dwell in the walk's
+  time-distance table; while it plays, the bridge's progress follows the recording. Taking the walk over mid-build
+  carries on from that moment (the bridge as far as it got, things set down, the step under way). Leaving play hands
+  back to the walker's own timeline, so for now your building is not kept after you leave (until B3 saves it).
+  A member's own character is the walker: when it arrives after load, the builds are recorded afresh with that body.
 
 Steps: (B1) building animations from CMU construction recordings (subject 62 hammering, sawing, coiling rope; lifting),
 shown on the bodies for a look; (B2) the build spot, E, progress and the growing bridge, locally, with the stroller

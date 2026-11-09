@@ -232,7 +232,6 @@ function extendRoute(upToK) {
   }
 }
 function walkerAt(dist) { extendRoute(Math.floor(dist / 450) + 3); let seg = route[0]; for (const s of route) { if (dist >= s.s0) seg = s; else break; } const t = Math.min(1, (dist - seg.s0) / seg.len); const a = seg.fn(Math.max(0, t - .01)), b = seg.fn(Math.min(1, t + .01)); const slope = seg.kind === 'bridge' ? Math.atan2(-(b.y - a.y), Math.abs(b.x - a.x) || 1) : 0; return Object.assign(seg.fn(t), { seg, t, slope }); }
-const LEAD = 140;
 // ---- walking pace: steady on the bridges, easing to a slow pivot at each ledge turn; time <-> distance table ----
 function turnGap(d) { extendRoute(Math.floor(d / 450) + 3); let g = 1e9; for (const sg of route) if (sg.kind === 'ledge') g = Math.min(g, Math.abs(d - (sg.s0 + sg.turnAt * sg.len))); return g; }
 const easeGap = g => { const u = Math.min(1, g / 28); return u * u * (3 - 2 * u); };
@@ -243,10 +242,65 @@ const TD = { t: [0], d: [0], dt: 1 / 120 };
 const PAUSE = 2.6, pauseAt = k => false;   // pauses switched off: every ledge simply turns
 const turnDist = sg => sg.s0 + sg.turnAt * sg.len;
 const pauses = new Map();   // ledge k -> { t0, t1 } (the dwell, in scene seconds)
+// The walker builds every bridge: once it has turned on a ledge it stops, sets down what it carries and builds that
+// ledge's bridge with the same builder as play (buildTick), recorded ahead of time (an episode) so that the walk stays a
+// function of time. In the time-distance table an episode is a dwell, then a jump to where the building left the walker
+// (on the deck near the far end, or for a rope bridge on the far landing, already turned). While it plays, the scene shows
+// the recording and the bridge's progress follows it; taking the walk over mid-build carries on from there.
+const EPIS = new Map(), SKIPTURN = new Set(), EP_DT = 1 / 30;
+let NEXT_EP = null;   // { k, t }: the next build to start, once the turn on ledge k is over
+const turnTail = () => { const TU = window.TUWRig && TUWRig.turn; return TU ? TU.dur - TU.hold + .1 : .5; };
+function routeDistOf(k, x, y) {   // where on the route (bridge k or ledge k + 1) a point is
+  extendRoute(k + 2); const bs = route.find(r => r.kind === 'bridge' && r.k === k), lg = route.find(r => r.kind === 'ledge' && r.k === k + 1);
+  let best = 1e9, d = bs.s0;
+  for (const sg of [bs, lg]) for (let i = 0; i <= 120; i++) { const t = i / 120, p = sg.fn(t), e = Math.hypot(p.x - x, p.y - y); if (e < best) { best = e; d = sg.s0 + t * sg.len; } }
+  return d;
+}
+function makeEpisode(k, dStart) {
+  const Bk = bridge(k), s = TUWBuild.state(k); s.step = 0; s.frac = 0; s.done = false; s.t = new Map();
+  const p = walkerAt(dStart), out = Math.sign(Bk.P2.x - Bk.P0.x) || 1, body = bodyFor(k), wh = walkerH(k);
+  const A = { c: { x: p.x, y: p.y, vx: 0, vy: 0, grounded: true, facing: out }, body, wh, face: out, build: { k, phase: 'put', t: 0, local: 0 }, down: null };
+  const rec = [], still = { x: 0, jump: false, down: false };
+  for (let n = 0; A.build && n < 4000; n++) {
+    buildTick(A, n * EP_DT, EP_DT, still);
+    rec.push({ x: A.c.x, y: A.c.y, face: A.face, b: A.build && Object.assign({}, A.build), down: A.down, step: s.step, frac: s.frac });
+  }
+  const offs = s.t, last = rec[rec.length - 1], sc = TUWBuild.prep(Bk).sc, lg = route.find(r => r.kind === 'ledge' && r.k === k + 1);
+  s.step = 0; s.frac = 0; s.done = false; s.t = new Map();
+  // a rope bridge ends on the far landing facing back along the ledge, as if turned: the walk goes on from there
+  const onFar = sc[sc.length - 1].at === 'far'; if (onFar) SKIPTURN.add(k + 1);
+  return { k, rec, offs, body, wh, dur: rec.length * EP_DT, dEnd: onFar ? turnDist(lg) + 3 : routeDistOf(k, last.x, last.y) };
+}
+let EP_CHAR;   // the builds are recorded with the walker's body: when a member's character arrives (or changes), record afresh
+function checkWalkTimeline() {
+  const ch = window.tuwCharacter || null; if (ch === EP_CHAR) return; EP_CHAR = ch;
+  TD.t = [0]; TD.d = [0]; EPIS.clear(); SKIPTURN.clear(); pauses.clear(); NEXT_EP = null;
+}
+function episodeAt(T) { for (const ep of EPIS.values()) if (T >= ep.t0 && T < ep.t1) return ep; return null; }
+const epFrame = (ep, T) => ep.rec[Math.max(0, Math.min(ep.rec.length - 1, Math.floor((T - ep.t0) / EP_DT)))];
+function applyStroll(T, kLo, kHi) {   // bridges kLo..kHi as the walker's builds leave them at time T
+  for (let k = kLo; k <= kHi; k++) {
+    const ep = EPIS.get(k), s = TUWBuild.state(k);
+    if (!ep || T < ep.t0) { if (s.t.size || s.done || s.step) { s.t = new Map(); s.step = 0; s.frac = 0; s.done = false; } continue; }
+    s.t = ep.tmap;   // pieces placed later in the build simply are not drawn yet
+    if (T >= ep.t1) { s.done = true; s.step = TUWBuild.prep(bridge(k)).sc.length; s.frac = 0; }
+    else { const r = epFrame(ep, T); s.step = r.step; s.frac = r.frac; s.done = false; }
+  }
+}
 function extendTD(tNeed, dNeed) {
+  if (TD.t.length === 1 && !NEXT_EP && !EPIS.size) NEXT_EP = { k: 0, t: Math.max(.3, timeAt(turnDist(route[0] || (extendRoute(1), route[0]))) + turnTail()) };   // the walk starts past ledge 0's turn
   while (TD.t[TD.t.length - 1] < tNeed || TD.d[TD.d.length - 1] < dNeed) {
     const i = TD.t.length - 1, d0 = TD.d[i] + 40, d1 = d0 + vAt(d0) * TD.dt;
+    if (NEXT_EP && TD.t[i] >= NEXT_EP.t) {   // stop and build: the recording is a dwell, then a jump to where it ended
+      const k = NEXT_EP.k; NEXT_EP = null;
+      const ep = makeEpisode(k, d0); ep.t0 = TD.t[i]; ep.t1 = ep.t0 + ep.dur; ep.tmap = new Map([...ep.offs].map(([sl, o]) => [sl, ep.t0 + o])); EPIS.set(k, ep);
+      for (let t = TD.dt; t < ep.dur; t += TD.dt) { TD.t.push(ep.t0 + t); TD.d.push(TD.d[i]); }
+      TD.t.push(ep.t1); TD.d.push(ep.dEnd - 40);
+      if (SKIPTURN.has(k + 1)) NEXT_EP = { k: k + 1, t: ep.t1 + .4 };   // ended on the far landing, past its turn: build the next one from there
+      continue;
+    }
     const sg = route.find(r => r.kind === 'ledge' && turnDist(r) > d0 && turnDist(r) <= d1);
+    if (sg && !EPIS.has(sg.k) && !NEXT_EP) NEXT_EP = { k: sg.k, t: TD.t[i] + (turnDist(sg) - d0) / Math.max(1e-6, vAt(d0)) + (SKIPTURN.has(sg.k) ? .05 : turnTail()) };
     if (sg && pauseAt(sg.k) && !pauses.has(sg.k)) {   // arrive exactly at the turn point, then stand there
       const td = turnDist(sg) - 40, tArr = TD.t[i] + (td - TD.d[i]) / Math.max(1e-6, vAt(d0)); pauses.set(sg.k, { t0: tArr, t1: tArr + PAUSE });
       TD.t.push(tArr); TD.d.push(td); for (let t = TD.dt; t <= PAUSE; t += TD.dt) { TD.t.push(tArr + t); TD.d.push(td); } continue;
@@ -256,7 +310,6 @@ function extendTD(tNeed, dNeed) {
 }
 function distAt(T) { T = Math.max(0, T); extendTD(T + .1, 0); let lo = 0, hi = TD.t.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (TD.t[m] <= T) lo = m; else hi = m; } return lerp(TD.d[lo], TD.d[hi], (T - TD.t[lo]) / ((TD.t[hi] - TD.t[lo]) || 1)) + 40; }
 function timeAt(dist) { const w = dist - 40; if (w <= 0) return w / SPEED; extendTD(0, w + 1); let lo = 0, hi = TD.d.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (TD.d[m] < w) lo = m; else hi = m; } return lerp(TD.t[lo], TD.t[hi], (w - TD.d[lo]) / ((TD.d[hi] - TD.d[lo]) || 1)); }
-function lockTime(Bk, u) { const sgm = route.find(s => s.kind === 'bridge' && s.k === Bk.k); return timeAt(sgm.s0 + u * Bk.len - LEAD); }
 
 // ---------- physics: colliders generated from the same shapes the painting uses --------------------------------
 // Each ledge index k contributes: its rock mass (solid), its bridge deck and landing (one-way platforms), the rock
@@ -275,9 +328,8 @@ function syncDeck(k, lo, hi) {   // the deck collider for the built stretch (plu
 }
 // play: a bridge is built by someone working it (build.js); what the stroller had built before you took over counts
 // as built
-function buildInit(dist) { for (const sg of route) if (sg.kind === 'bridge' && dist - sg.s0 + LEAD > 0) { const Bk = bridge(sg.k), s = TUWBuild.state(sg.k); if (!s.done && s.t.size === 0) TUWBuild.complete(Bk); } }
 // when a bridge piece starts flying in: the stroller's timeline, or (play) the moment the work revealed it
-function slotStart(Bk, sl, T) { if (!PLAY) return lockTime(Bk, sl.u) - sl.dur; return TUWBuild.revealed(Bk, sl); }
+function slotStart(Bk, sl, T) { return TUWBuild.revealed(Bk, sl); }   // placed by whoever built it (you, or the walker's builds)
 // the walkway of bridge k as a line (optionally trimmed at both ends, where it meets the ledges)
 function deckLine(k, trim) { const Bk = bridge(k), t = trim || 0, out = []; for (let s = t; s <= Bk.len - t; s += 10) { const p = Bk.at(Math.min(s, Bk.len - t)); out.push([p.x, p.y]); } return out; }
 function physChunk(k) {
@@ -397,11 +449,17 @@ const KEYS = new Set(), PLAYKEYS = { e: 'build', E: 'build', ArrowLeft: 'l', a: 
 function enterPlay(full) {
   if (PLAY || !phys || !window.PhysCharacter || !window.__walker) return;
   const w = window.__walker, body = (window.tuwCharacter && TUWBodies.byId(window.tuwCharacter)) || w.body || TUWBodies.archetypes[0], wh = WALKER_H * (body.height || 1);
-  buildInit(distAt((performance.now() - t0) / 1000));
+  // the bridges as the walker's builds left them; a build in progress is yours to carry on
+  const Tn = (performance.now() - t0) / 1000;
+  for (const [k, ep] of EPIS) { const s = TUWBuild.state(k);
+    if (Tn >= ep.t1) { s.t = new Map(ep.tmap); TUWBuild.complete(bridge(k)); }
+    else if (Tn >= ep.t0) { const r = epFrame(ep, Tn); s.t = new Map([...ep.tmap].filter(([, t]) => t <= Tn)); s.step = r.step; s.frac = r.frac; s.done = false; }
+    else { s.t = new Map(); s.step = 0; s.frac = 0; s.done = false; } }
   for (let k = Math.max(0, w.pos.seg.k - 3); k <= w.pos.seg.k + 3; k++) { physChunk(k); syncDeck(k, 0, TUWBuild.deckExtent(bridge(k))); }
   const c = new PhysCharacter(phys, { x: w.pos.x, y: w.pos.y, height: wh, facing: w.facing });
   c.grounded = true;
   PLAY = { c, body, wh, face: c.facing, flipAt: -9, flipFrom: c.facing, landAt: -9, phase: 0, lastX: c.x, lastT: null };
+  if (w.ep && w.r && w.r.b) { PLAY.build = Object.assign({}, w.r.b); PLAY.down = w.r.down && Object.assign({}, w.r.down); PLAY.face = c.facing = w.r.face; PLAY.flipFrom = PLAY.face; PLAY.lastPose = STROLL.lastPose; PLAY.mode = STROLL.mode; }
   KEYS.clear();
   if (full) { window.scrollTo(0, 0); document.body.classList.add('playing'); document.getElementById('playExit').focus({ preventScroll: true }); }
   else document.body.classList.add('controlling');   // arrow keys: walk right where you are, text stays
@@ -430,19 +488,19 @@ const smooth01 = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
 const HELD = /^(staff|crook|javelin|laurel|scroll|lantern|shield|spear)$/;
 const holds = body => (body.props || []).filter(p => HELD.test(p));
 // the line someone crosses the gorge on (cantilever): staked HANG body heights up at the building spot and at the far landing
-function crossing(k) {
-  const Bk = bridge(k), out = Math.sign(Bk.P2.x - Bk.P0.x) || 1, B = ledge(k + 1), up = TUWBuild.HANG * (PLAY ? PLAY.wh : WALKER_H);
+function crossing(k, wh) {
+  const Bk = bridge(k), out = Math.sign(Bk.P2.x - Bk.P0.x) || 1, B = ledge(k + 1), up = TUWBuild.HANG * (wh || (PLAY ? PLAY.wh : WALKER_H));
   return { from: [Bk.P0.x - out * 20, ledge(k).edgeOut[1] - up], to: [B.landing[0], B.landing[1] - up], sag: .06, up };
 }
-function buildSpot(k) {   // where the builder stands for the current step of bridge k: { x, y, face }
+function buildSpot(k, wh) {   // where the builder stands for the current step of bridge k: { x, y, face }
   const Bk = bridge(k), st = TUWBuild.step(Bk), L = ledge(k), out = Math.sign(Bk.P2.x - Bk.P0.x) || 1; if (!st) return null;
   if (st.at === 'deck') { const p = Bk.at(TUWBuild.station(Bk) || 4); return { x: p.x, y: p.y, face: out }; }
   if (st.at === 'far') { const B = ledge(k + 1); return { x: B.landing[0], y: B.landing[1], face: -out }; }
-  if (st.at === 'line') { const C = crossing(k), p = TUWBuild.along(C, TUWBuild.travelU(Bk)); return { x: p[0], y: p[1] + C.up, face: out, line: true }; }
+  if (st.at === 'line') { const C = crossing(k, wh), p = TUWBuild.along(C, TUWBuild.travelU(Bk)); return { x: p[0], y: p[1] + C.up, face: out, line: true }; }
   return { x: Bk.P0.x - out * 20, y: L.edgeOut[1], face: out };
 }
 function buildGeo(k, pose, c, face, wh) {   // the scene points a build step's line and pose need (see build.js)
-  const Bk = bridge(k), cross = crossing(k), toS = q => [c.x + q[0] * wh * face * (pose && pose.mirror ? -1 : 1), c.y - q[1] * wh];
+  const Bk = bridge(k), cross = crossing(k, wh), toS = q => [c.x + q[0] * wh * face * (pose && pose.mirror ? -1 : 1), c.y - q[1] * wh];
   let far = cross.to;
   if (Bk.type === 'rope') { const a = Bk.slots.filter(s => s._end === 'far' && s.kind === 'anchor').sort((a, b) => Math.abs(a.x - Bk.P2.x) - Math.abs(b.x - Bk.P2.x))[0]; if (a) far = [a.x, a.y]; }
   return { cross, far, L: pose ? toS(pose.P('handL')) : null, R: pose ? toS(pose.P('handR')) : null };
@@ -452,18 +510,25 @@ function nearestWork(c) {   // an unbuilt bridge whose current spot you are stan
   for (let k = Math.max(0, kp - 2); k <= kp + 1; k++) { const sp = buildSpot(k); if (sp && Math.abs(sp.x - c.x) < 28 && Math.abs(sp.y - c.y) < 34) return { k, sp }; }
   return null;
 }
-function buildTick(T, dt, inp) {
-  const P = PLAY, c = P.c, b = P.build, Bk = bridge(b.k), A = TUWRig.actions, held = holds(P.body).length > 0, PUT = A.lift.dur / 2.6;
+// A builder is the player (PLAY) or the page's own walker (an episode, below): { c: { x, y }, body, wh, face, build:
+// { k, phase: 'put' | 'work' | 'take', t, local, walking, ... }, down }. buildTick moves the work on by dt; false when done.
+function buildTick(P, T, dt, inp) {
+  const c = P.c, b = P.build, Bk = bridge(b.k), A = TUWRig.actions, held = holds(P.body).length > 0, PUT = A.lift.dur / 2.6;
   const moving = inp.x !== 0 || inp.jump, cur = TUWBuild.step(Bk);
   if (b.phase === 'work' && moving && !(cur && cur.at === 'line')) { b.phase = 'take'; b.t = 0; }   // move to stop: pick things up first (not while hanging over the gorge)
   b.t += dt;
+  // setting down: the things are in hand until they touch the ground; picking up: in hand from when they leave it
+  if (b.phase === 'put' || b.phase === 'take') { const u = Math.min(1, b.t / PUT);
+    if (b.phase === 'put' && u >= 1 - A.lift.pickup / A.lift.dur && !P.down && held) P.down = { x: c.x + P.face * P.wh * .32, y: c.y, face: P.face, items: holds(P.body) };
+    if (b.phase === 'take' && u >= A.lift.pickup / A.lift.dur) P.down = null;
+    b.inHand = held && !P.down; }
   if (b.phase === 'put') { if (!held || b.t >= PUT) { b.phase = 'work'; b.t = 0; } }
   else if (b.phase === 'work') {
     // where the builder should be: the step's spot; on the deck, a station that only moves up when the planks laid
     // ahead of it reach about half a body length, at the end of a work cycle (build, build, build, then step up)
     const st = TUWBuild.step(Bk); if (!st) { b.phase = 'take'; b.t = 0; }
     else {
-      const tgt = buildSpot(b.k);
+      const tgt = buildSpot(b.k, P.wh);
       const dx = tgt.x - c.x, dy = tgt.y - c.y, d = Math.hypot(dx, dy);
       if (d > 2.5 && !tgt.line) {   // (on the line the work itself moves you: no walking)   // walk there (the work waits)
         const v = P.wh * .9 * dt, m = Math.min(1, v / d); c.x += dx * m; c.y += dy * m; P.face = Math.sign(dx) || tgt.face;
@@ -476,7 +541,7 @@ function buildTick(T, dt, inp) {
   } else if (b.phase === 'take') { if (!held || b.t >= PUT) { P.build = null; P.down = null; return false; } }
   // things set down travel with the work (carried along when it moves on to a new spot)
   const stNow = TUWBuild.step(Bk);   // (only along ground you walked: not across on the line)
-  if (P.down && b.phase === 'work' && !b.walking && stNow && (stNow.at === 'spot' || stNow.at === 'deck') && Math.hypot(P.down.x - (c.x - P.face * P.wh * .35), P.down.y - c.y) > P.wh * .6) { P.down.x = c.x - P.face * P.wh * .35; P.down.y = c.y; P.down.face = -P.face; }
+  if (P.down && b.phase === 'work' && !b.walking && stNow && (stNow.at === 'spot' || stNow.at === 'deck') && Math.hypot(P.down.x - (c.x - P.face * P.wh * .35), P.down.y - c.y) > P.wh * .6) P.down = Object.assign({}, P.down, { x: c.x - P.face * P.wh * .35, y: c.y, face: -P.face });
   c.vx = c.vy = 0; c.grounded = true; c.facing = P.face;
   return true;
 }
@@ -525,30 +590,55 @@ function snapPose(p) {   // a pose fixed in place (its joints read once), to eas
   const tab = {}; for (const n of TUWRig.joints) tab[n] = p.P(n);
   return Object.assign({}, p, { P: n => tab[n] || p.P(n), angles: Object.assign({}, p.angles) });
 }
+function buildPose(P, T) {   // setting down / picking up (placing and lifting, empty-handed), or the build script's motion
+  const b = P.build, c = P.c, A = TUWRig.actions, PUT = A.lift.dur / 2.6;
+  if (b.phase === 'work') return b.walking ? Object.assign({}, TUWRig.pose({ slope: b.wslope || 0, phase: b.wphase || 0 }), { tool: 'empty' })   // stepping up to the new edge
+    : (TUWBuild.pose(bridge(b.k), b.local || 0, buildGeo(b.k, null, c, P.face, P.wh)) || TUWRig.pose({ idle: 1 }));
+  const u = Math.min(1, b.t / PUT);
+  return Object.assign({}, TUWRig.action(b.phase === 'put' ? 'place' : 'lift', u * A.lift.dur), { tool: 'empty' });
+}
+// building: each change of motion (setting down, a new step, stepping up the deck, picking up, walking off) eases from
+// where the body was into the new motion instead of jumping to its first frame
+function easeModes(P, pose, T) {
+  const mode = P.build ? P.build.phase + ':' + (P.build.walking ? 'walk' : ((TUWBuild.step(bridge(P.build.k)) || {}).id || '')) : 'free';
+  if (mode !== P.mode) { if (P.lastPose && (mode !== 'free' || P.mode)) { P.xfFrom = snapPose(P.lastPose); P.xfAt = T; } P.mode = mode === 'free' ? null : mode; }
+  if (P.xfFrom) {
+    const w = smooth01((T - P.xfAt) / .35);
+    if (w >= 1) P.xfFrom = null;
+    else { const f = !P.xfFrom.mirror !== !pose.mirror ? (P.xfFrom = TUWRig.mirrored(P.xfFrom)) : P.xfFrom, q = TUWRig.blend(f, pose, w); pose = w < .5 ? Object.assign(q, { tool: f.tool, toolSize: f.toolSize, coilHand: f.coilHand, strand: f.strand, pile: f.pile, grapnel: f.grapnel }) : q; }
+  }
+  P.lastPose = pose; return pose;
+}
+function drawBuildExtras(P, pose) {   // things set down beside the builder, things in hand, the line
+  const c = P.c;
+  if (P.down) drawDown(P.down, P.wh);
+  if (P.build && P.build.inHand && P.build.phase !== 'work') { const hd = pose.P('handL'); drawHeld(holds(P.body), [c.x + hd[0] * P.wh * P.face, c.y - hd[1] * P.wh], P.face, P.wh); }
+  if (P.build && P.build.phase === 'work') drawLine(TUWBuild.line(bridge(P.build.k), P.build.local || 0, buildGeo(P.build.k, pose, c, P.face, P.wh)));
+}
+const STROLL = {};   // the walker while it builds (eases between motions like the player)
+function drawEpisode(ep, r, T) {
+  Object.assign(STROLL, { c: { x: r.x, y: r.y }, body: ep.body, wh: ep.wh, face: r.face, build: r.b, down: r.down });
+  let pose = r.b ? buildPose(STROLL, T) : TUWRig.pose({ idle: 1 });
+  pose = easeModes(STROLL, pose, T); drawBuildExtras(STROLL, pose);
+  const dir = r.face * (pose.mirror ? -1 : 1), wind = Math.max(-1.5, Math.min(1.5, (window.Weather ? Weather.wind(T).x * .7 : -.45)));
+  drawWalkerBrush(ctx, { x: r.x, y: r.y, h: ep.wh, phase: 0, alpha: 1, color: INK,
+    draw: (cc, o) => drawBody(cc, ep.body, pose, { x: o.x, y: o.y, h: o.h, dir, color: o.color, wind, time: T }),
+    drawLines: (cc, o) => drawBodyLines(cc, ep.body, pose, { x: o.x, y: o.y, h: o.h, dir, lineColor: o.lineColor, wind, time: T }) });
+}
 function drawPlayer(T) {
   const P = PLAY, c = P.c, J = TUWRig.jump, TN = PhysCharacter.TUNE;
   let acc = P.lastT == null ? 0 : Math.max(0, Math.min(.1, T - P.lastT)); P.lastT = T;
   const inp = { x: (KEYS.has('r') ? 1 : 0) - (KEYS.has('l') ? 1 : 0), jump: KEYS.has('j'), down: KEYS.has('dn') };
   for (let k = Math.round(-c.y / STEP) - 2; k <= Math.round(-c.y / STEP) + 1; k++) if (k >= 0) syncDeck(k, 0, TUWBuild.deckExtent(bridge(k)));
-  const working = P.build && buildTick(T, acc, inp);   // working on a bridge: the work, not the controls, places the figure
+  const working = P.build && buildTick(P, T, acc, inp);   // working on a bridge: the work, not the controls, places the figure
   if (!working) while (acc > 1e-6) { const h = Math.min(1 / 120, acc); c.step(h, inp); acc -= h; if (c.events.includes('land')) P.landAt = T; }
   // fell below the bottom of the gorge: back onto the lowest ledge
   if (c.y > ledge(0).yTop + 420) { const L0 = ledge(0); c.x = L0.landing[0] - L0.dir * 40; c.y = L0.landing[1] - 30; c.vx = c.vy = 0; c.grounded = false; P.spawnAt = T; }   // the mist gives you back
   if (c.facing !== P.face) { P.flipFrom = P.face; P.face = c.facing; P.flipAt = T; }
   const dx = Math.abs(c.x - P.lastX); P.lastX = c.x;
   let pose;
-  if (P.build) {   // working: setting down / picking up (the lift motion, no plank), or the build script's motion
-    const b = P.build, A = TUWRig.actions, PUT = A.lift.dur / 2.6;
-    if (b.phase === 'work') pose = b.walking ? Object.assign({}, TUWRig.pose({ slope: b.wslope || 0, phase: b.wphase || 0 }), { tool: 'empty' })   // stepping up to the new edge
-      : (TUWBuild.pose(bridge(b.k), b.local || 0, buildGeo(b.k, null, c, P.face, P.wh)) || TUWRig.pose({ idle: 1 }));
-    else {
-      // setting down: the placing motion (lifting backwards), the things in hand until they touch the ground;
-      // picking up: the lifting motion, the things in hand from the moment they leave the ground
-      const u = Math.min(1, b.t / PUT), lowPut = 1 - A.lift.pickup / A.lift.dur, lowTake = A.lift.pickup / A.lift.dur;
-      if (b.phase === 'put') { pose = Object.assign({}, TUWRig.action('place', u * A.lift.dur), { tool: 'empty' }); if (u >= lowPut && !P.down) P.down = { x: c.x + P.face * P.wh * .32, y: c.y, face: P.face, items: holds(P.body) }; b.inHand = !P.down; }
-      else { pose = Object.assign({}, TUWRig.action('lift', u * A.lift.dur), { tool: 'empty' }); if (u >= lowTake) P.down = null; b.inHand = !P.down; }
-    }
-  } else if (c.grounded) {
+  if (P.build) pose = buildPose(P, T);
+  else if (c.grounded) {
     const sp = Math.abs(c.vx) / P.wh, run = smooth01((sp - .9) / .9), idle = 1 - smooth01(sp / .35);
     P.phase += dx / (TUWRig.stride(c.slope, run) * P.wh) * Math.PI * 2;
     pose = TUWRig.pose({ slope: c.slope, phase: P.phase, run, idle });
@@ -558,24 +648,12 @@ function drawPlayer(T) {
     const v = c.vy / (TN.jumpVel * P.wh), tc = v < 0 ? J.apex + (J.takeoff - J.apex) * Math.min(1, -v) : J.apex + (J.land - .04 - J.apex) * Math.min(1, v * 1.4);
     pose = J.pose(tc, 1);
   }
-  // building: each change of motion (setting down, a new step, stepping up the deck, picking up, walking off) eases from
-  // where the body was into the new motion instead of jumping to its first frame
-  const mode = P.build ? P.build.phase + ':' + (P.build.walking ? 'walk' : ((TUWBuild.step(bridge(P.build.k)) || {}).id || '')) : 'free';
-  if (mode !== P.mode) { if (P.lastPose && (mode !== 'free' || P.mode)) { P.xfFrom = snapPose(P.lastPose); P.xfAt = T; } P.mode = mode === 'free' ? null : mode; }
-  if (P.xfFrom) {
-    const w = smooth01((T - P.xfAt) / .35);
-    if (w >= 1) P.xfFrom = null;
-    else { const f = !P.xfFrom.mirror !== !pose.mirror ? (P.xfFrom = TUWRig.mirrored(P.xfFrom)) : P.xfFrom, q = TUWRig.blend(f, pose, w); pose = w < .5 ? Object.assign(q, { tool: f.tool, toolSize: f.toolSize, coilHand: f.coilHand, strand: f.strand, pile: f.pile, grapnel: f.grapnel }) : q; }
-  }
-  P.lastPose = pose;
+  pose = easeModes(P, pose, T);
   // turning on the spot: a quick narrowing through three-quarters instead of a flip
   const u = (T - P.flipAt) / .16; let dir = P.face;
   if (u < 1) { pose = Object.assign({}, pose, { fc: Math.max(.15, Math.abs(Math.cos(Math.PI * u))) }); dir = u < .5 ? P.flipFrom : P.face; }
   const wind = Math.max(-1.5, Math.min(1.5, (window.Weather ? Weather.wind(T).x * .7 : -.45)));
-  // things set down beside the builder, the grapnel line, and the hint at a building spot
-  if (P.down) drawDown(P.down, P.wh);
-  if (P.build && P.build.inHand && P.build.phase !== 'work') { const hd = pose.P('handL'); drawHeld(holds(P.body), [c.x + hd[0] * P.wh * P.face, c.y - hd[1] * P.wh], P.face, P.wh); }
-  if (P.build && P.build.phase === 'work') drawLine(TUWBuild.line(bridge(P.build.k), P.build.local || 0, buildGeo(P.build.k, pose, c, P.face, P.wh)));
+  drawBuildExtras(P, pose);   // and the hint at a building spot, below
   if (pose.mirror) dir = -dir;   // a mirrored pose (hanging on the line) is drawn facing the other way
   if (!P.build && c.grounded) { const w = nearestWork(c); if (w) drawHint(w.sp, P.wh); }
   const fadeIn = P.spawnAt == null ? 1 : smooth01((T - P.spawnAt) / .7);   // reappear like ink soaking into paper
@@ -587,7 +665,9 @@ function drawPlayer(T) {
 // ---------- main loop ----------------------------------------------------------------
 const t0 = performance.now() - 1000 * (parseFloat(new URLSearchParams(location.search).get('t')) || 0); const cam = { y: 0 }; let phase = 0, prevPos = null, prevT = null, lastTurn = false;
 function frame(now) {
-  const T = (now - t0) / 1000, dist = distAt(T), pos = walkerAt(dist);
+  checkWalkTimeline();
+  const T = (now - t0) / 1000, dist = distAt(T), ep = PLAY ? null : episodeAt(T), epR = ep && epFrame(ep, T);
+  let pos = walkerAt(dist); if (ep) pos = Object.assign({}, pos, { x: epR.x, y: epR.y });   // building: where the recording has them
   const focusY = PLAY ? PLAY.c.y : pos.y, targetY = focusY - 900 * .60 + 450; cam.y = prevPos ? lerp(cam.y, targetY, PLAY ? .1 : .05) : targetY;
   const altitude = -pos.y / STEP;
   const camV = cam.y + (PLAY ? 0 : scrollY / S);   // the view: walker follow plus page scroll, so the scenery moves with the text
@@ -610,6 +690,7 @@ function frame(now) {
     const depthA = dk <= 1 ? 1 : dk <= 3 ? .72 : .5;
     ctx.globalAlpha = Math.min(depthA, above > 1.6 ? Math.max(.25, 1 - (above - 1.6) * .5) : 1); bridge(k).pinnacles.forEach((pn, i) => drawPinnacle(k, i, pn)); drawLedge(L); ctx.globalAlpha = 1; }
   const frontPieces = [];
+  if (!PLAY) applyStroll(T, kLo, kHi);
   for (let k = kLo; k <= kHi; k++) {
     const Bk = bridge(k); extendRoute(k + 2);
     for (const sl of Bk.slots) {
@@ -621,13 +702,15 @@ function frame(now) {
       Bridges.place(ctx, sl, x, y, rot, al);
     }
   }
-  if (PLAY) { drawPlayer(T); prevT = T; prevPos = pos; } else {
+  if (PLAY) { drawPlayer(T); prevT = T; prevPos = pos; }
+  else if (ep) { drawEpisode(ep, epR, T); window.__walker = { pos, body: ep.body, facing: epR.face, ep, r: epR }; prevT = T; prevPos = pos; }
+  else {
   const gapNow = turnGap(dist), stepScale = .55 + .45 * easeGap(gapNow), dtF = prevT == null ? 0 : Math.max(0, Math.min(.1, T - prevT));
   // ---- the turn on each ledge: a recorded 180-degree step-turn (rig.js turn) played in real time around the moment
   // the walker reaches the turn point; on pause ledges it holds three-quarters toward us for the dwell ----
   const TU = window.TUWRig && TUWRig.turn, lg = pos.seg.kind === 'ledge' ? pos.seg : route.find(r => r.kind === 'ledge' && r.k === pos.seg.k + 1);
   let turnTc = null, tW = null, tArr = null, dwell = 0;
-  if (TU && lg) {
+  if (TU && lg && !SKIPTURN.has(lg.k)) {
     tArr = timeAt(turnDist(lg)); const pz = pauses.get(lg.k); if (pz) { tArr = pz.t0; dwell = pz.t1 - pz.t0; }
     tW = tArr - TU.hold;                                         // clip start (a left-foot strike)
     const tc = T < tArr ? TU.hold - (tArr - T) : T < tArr + dwell ? TU.hold : TU.hold + (T - tArr - dwell);
