@@ -18,23 +18,30 @@
   // reveal(sl, Bk) picks the pieces a step builds; they appear in near-to-far order through the step. Pieces no step
   // claims go up with the last step. act: an action name, or a list played in turn; reps: one-shots repeated.
   const near = sl => sl._end === 'near', far = sl => sl._end === 'far';
+  // laying the deck, in cycles: lift a plank (sped up), hammer it in. Each cycle lays perCycle units of deck during the
+  // hammering; between cycles the builder steps up to the new edge (build, build, build, step up)
+  const DECK = [{ n: 'lift', speed: 2.6 }, { n: 'hammer', speed: 1.25 }];
   const SCRIPTS = {
     rope: [
-      { id: 'coil', act: 'coil', dur: 5, at: 'spot', grow: true },
-      { id: 'anchors', act: 'hammer', dur: 4, at: 'spot', reveal: sl => near(sl) && (sl.kind === 'anchor' || sl.kind === 'cap' || (sl.kind === 'rope' && sl.s == null)) },
-      { id: 'towers', act: 'push', dur: 3.5, at: 'spot', reveal: sl => near(sl) && (sl.kind === 'tower' || sl.kind === 'stay') },
+      { id: 'coil', act: 'coil', dur: 4, at: 'spot', grow: true },
+      { id: 'anchors', act: 'hammer', dur: 3, at: 'spot', reveal: sl => near(sl) && (sl.kind === 'anchor' || sl.kind === 'cap' || (sl.kind === 'rope' && sl.s == null)) },
+      { id: 'towers', act: 'push', dur: 3, at: 'spot', reveal: sl => near(sl) && (sl.kind === 'tower' || sl.kind === 'stay') },
       { id: 'throw', act: 'throw', reps: 3, dur: 4.5, at: 'spot', line: true, atEnd: true, reveal: sl => far(sl) && (sl.kind === 'anchor' || sl.kind === 'cap' || (sl.kind === 'rope' && sl.s == null)) },
-      { id: 'cables', act: 'haul', dur: 5, at: 'spot', line: true, reveal: sl => sl.kind === 'cable' },
-      { id: 'deck', act: ['lift', 'hammer', 'hammer'], dur: 13, at: 'deck', reveal: sl => /^(deck|plank|hanger)$/.test(sl.kind) || (sl.kind === 'rope' && sl.s != null) },
+      { id: 'cables', act: 'haul', dur: 4, at: 'spot', line: true, reveal: sl => sl.kind === 'cable' },
+      { id: 'deck', act: DECK, perCycle: 64, at: 'deck', reveal: sl => /^(deck|plank|hanger)$/.test(sl.kind) || (sl.kind === 'rope' && sl.s != null) },
       { id: 'far', act: 'push', dur: 3, at: 'far', reveal: sl => far(sl) },
     ],
     // the other three get their own sequences next; until then: frame from the ledge, then the deck walking out
     generic: [
       { id: 'frame', act: ['hammer', 'push'], dur: 7, at: 'spot', reveal: sl => !/^(deck|plank|cleat|rail|post)$/.test(sl.kind) },
-      { id: 'deck', act: ['lift', 'hammer', 'hammer'], dur: 14, at: 'deck', reveal: sl => true },
+      { id: 'deck', act: DECK, perCycle: 64, at: 'deck', reveal: sl => true },
     ],
   };
   const scriptOf = Bk => SCRIPTS[Bk.type] || SCRIPTS.generic;
+  const actsOf = st => [].concat(st.act).map(a => typeof a === 'string' ? { n: a, speed: 1 } : a);
+  const cycleDur = st => actsOf(st).reduce((t, a) => t + R().actions[a.n].dur / a.speed, 0);
+  function cyclesOf(Bk, st) { return st.perCycle ? Math.max(1, Math.ceil(Bk.len / st.perCycle)) : 0; }
+  function durOf(Bk, st) { return st.perCycle ? cyclesOf(Bk, st) * cycleDur(st) : st.dur; }
 
   // ---- per bridge -----------------------------------------------------------------------------------------------
   const STATES = new Map();
@@ -55,9 +62,15 @@
   function advance(Bk, dt, T) {
     const s = state(Bk.k), { sc, lists } = prep(Bk); if (s.done) return null;
     const st = sc[s.step], list = lists[s.step];
-    s.frac = Math.min(1, s.frac + dt / st.dur);
-    const n = st.atEnd ? (s.frac >= .97 ? list.length : 0) : Math.floor(s.frac * list.length + 1e-9);
-    for (let i = 0; i < n; i++) if (!s.t.has(list[i])) s.t.set(list[i], T);
+    s.frac = Math.min(1, s.frac + dt / durOf(Bk, st));
+    if (st.perCycle) {   // pieces up to the stretch being hammered in this cycle
+      const N = cyclesOf(Bk, st), x = s.frac * N, n = Math.floor(x), u = x - n, a0 = actsOf(st), hs = (R().actions[a0[0].n].dur / a0[0].speed) / cycleDur(st);
+      const upto = Math.min(Bk.len, (n + Math.max(0, (u - hs) / (1 - hs))) * st.perCycle) + (s.frac >= 1 ? 1e9 : 0);
+      for (const sl of list) if (sl._o <= upto && !s.t.has(sl)) s.t.set(sl, T);
+    } else {
+      const n = st.atEnd ? (s.frac >= .97 ? list.length : 0) : Math.floor(s.frac * list.length + 1e-9);
+      for (let i = 0; i < n; i++) if (!s.t.has(list[i])) s.t.set(list[i], T);
+    }
     if (s.frac >= 1) { for (const sl of list) if (!s.t.has(sl)) s.t.set(sl, T); s.step++; s.frac = 0; if (s.step >= sc.length) s.done = true; }
     return s.done ? null : sc[s.step];
   }
@@ -70,11 +83,11 @@
   // the builder's pose: the step's action(s) played in turn (one-shots repeated reps times across the step)
   function pose(Bk, t) {
     const st = step(Bk), rig = R(); if (!st || !rig) return null;
-    const acts = [].concat(st.act), A = rig.actions;
+    const acts = actsOf(st), A = rig.actions;
     let p;
-    if (st.reps) { const d = A[acts[0]].dur, per = st.dur / st.reps; p = rig.action(acts[0], Math.min(d - .01, (t % per) * d / per)); }
-    else if (acts.length === 1) p = rig.action(acts[0], t);
-    else { const cyc = acts.reduce((a, n) => a + A[n].dur, 0); let u = t % cyc, i = 0; while (u > A[acts[i]].dur && i < acts.length - 1) { u -= A[acts[i]].dur; i++; } p = rig.action(acts[i], u); }
+    if (st.reps) { const d = A[acts[0].n].dur, per = st.dur / st.reps; p = rig.action(acts[0].n, Math.min(d - .01, (t % per) * d / per)); }
+    else if (acts.length === 1) p = rig.action(acts[0].n, t * acts[0].speed);
+    else { const cyc = cycleDur(st); let u = t % cyc, i = 0; while (u > A[acts[i].n].dur / acts[i].speed && i < acts.length - 1) { u -= A[acts[i].n].dur / acts[i].speed; i++; } p = rig.action(acts[i].n, u * acts[i].speed); }
     if (st.grow) p = Object.assign({}, p, { toolSize: state(Bk.k).frac });
     if (!p.tool) p = Object.assign({}, p, { tool: 'empty' });   // working hands: held things stay set down
     return p;
@@ -89,5 +102,7 @@
     const v = (u - rel) / (1 - rel), reach = n >= st.reps - 1 ? 1 : n === 0 ? .45 : .75;
     return { from: hand, to: target, reach, v, caught: n >= st.reps - 1 };
   }
-  window.TUWBuild = { state, complete, advance, revealed, deckExtent, step, pose, line, prep, scripts: SCRIPTS };
+  // where the builder stands on the deck during the current cycle: just behind the edge laid by the cycles before
+  function station(Bk) { const st = step(Bk); if (!st || !st.perCycle) return null; const s = state(Bk.k), n = Math.floor(s.frac * cyclesOf(Bk, st) + 1e-9); return Math.max(4, Math.min(Bk.len - 4, n * st.perCycle - 8)); }
+  window.TUWBuild = { state, complete, advance, revealed, deckExtent, step, pose, line, prep, station, durOf, scripts: SCRIPTS };
 })();

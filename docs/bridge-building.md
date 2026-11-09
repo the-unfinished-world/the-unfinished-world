@@ -61,6 +61,12 @@ walking out over what you have already built. You lay a deck by walking out on i
   from the working hand back to the coil, and the coil grows turn by turn.
 - Shared bridges: progress is saved per bridge and per step, so someone else can pick up where you stopped.
 
+## Laying a deck (from Nikhil)
+
+Not a smooth slide: build, build, build, then step up. Each work cycle (lift a plank, hammer it in) lays about a body
+length of deck, which appears with the hammer strokes; then the builder stands and walks up to the new edge, and the
+work waits while they walk. Any change of place during a build (onto the deck, over to the far ledge) is a walk.
+
 ## How it is built
 
 Each bridge type gets a build script: a list of steps, each with its motion clip(s), tool, how long it takes, which

@@ -431,7 +431,7 @@ const HELD = /^(staff|crook|javelin|laurel|scroll|lantern|shield|spear)$/;
 const holds = body => (body.props || []).filter(p => HELD.test(p));
 function buildSpot(k) {   // where the builder stands for the current step of bridge k: { x, y, face }
   const Bk = bridge(k), st = TUWBuild.step(Bk), L = ledge(k), out = Math.sign(Bk.P2.x - Bk.P0.x) || 1; if (!st) return null;
-  if (st.at === 'deck') { const p = Bk.at(Math.max(0, TUWBuild.deckExtent(Bk) - 14)); return { x: p.x, y: p.y, face: out }; }
+  if (st.at === 'deck') { const p = Bk.at(TUWBuild.station(Bk) || 4); return { x: p.x, y: p.y, face: out }; }
   if (st.at === 'far') { const B = ledge(k + 1); return { x: B.landing[0], y: B.landing[1], face: -out }; }
   return { x: Bk.P0.x - out * 20, y: L.edgeOut[1], face: out };
 }
@@ -447,14 +447,26 @@ function buildTick(T, dt, inp) {
   b.t += dt;
   if (b.phase === 'put') { if (!held || b.t >= PUT) { b.phase = 'work'; b.t = 0; } }
   else if (b.phase === 'work') {
+    // where the builder should be: the step's spot; on the deck, a station that only moves up when the planks laid
+    // ahead of it reach about half a body length, at the end of a work cycle (build, build, build, then step up)
     const st = TUWBuild.step(Bk); if (!st) { b.phase = 'take'; b.t = 0; }
-    else { const before = st.id; TUWBuild.advance(Bk, dt, T); const now = TUWBuild.step(Bk); b.local = now && now.id === before ? (b.local || 0) + dt : 0; if (!now) { b.phase = 'take'; b.t = 0; } }
+    else {
+      let tgt = buildSpot(b.k);
+      if (st.at === 'deck') {
+        const out = Math.sign(Bk.P2.x - Bk.P0.x) || 1, p = Bk.at(TUWBuild.station(Bk) || 4); tgt = { x: p.x, y: p.y, face: out };
+      }
+      const dx = tgt.x - c.x, dy = tgt.y - c.y, d = Math.hypot(dx, dy);
+      if (d > 2.5) {   // walk there (the work waits)
+        const v = P.wh * .9 * dt, m = Math.min(1, v / d); c.x += dx * m; c.y += dy * m; P.face = Math.sign(dx) || tgt.face;
+        b.walking = true; b.wphase = (b.wphase || 0) + Math.min(v, d) / (TUWRig.stride(Math.atan2(-dy, Math.abs(dx) || 1)) * P.wh) * Math.PI * 2; b.wslope = Math.atan2(-dy, Math.abs(dx) || 1);
+      } else {
+        b.walking = false; c.x = tgt.x; c.y = tgt.y; P.face = tgt.face;
+        const before = st.id; TUWBuild.advance(Bk, dt, T); const now = TUWBuild.step(Bk); b.local = now && now.id === before ? (b.local || 0) + dt : 0; if (!now) { b.phase = 'take'; b.t = 0; }
+      }
+    }
   } else if (b.phase === 'take') { if (!held || b.t >= PUT) { P.build = null; P.down = null; return false; } }
-  // place the figure: at the step's spot (eased when the spot moves, e.g. out along the deck)
-  const sp = buildSpot(b.k) || { x: c.x, y: c.y, face: P.face }, e = Math.min(1, dt * 6);
-  if (b.phase !== 'take' || !b.left) { c.x += (sp.x - c.x) * e; c.y += (sp.y - c.y) * e; P.face = sp.face; }
-  // things set down travel with the work (carried along when it moves out over the deck or to the far ledge)
-  if (P.down && b.phase === 'work' && Math.hypot(P.down.x - (sp.x - sp.face * P.wh * .35), P.down.y - sp.y) > P.wh * .6) { P.down.x = sp.x - sp.face * P.wh * .35; P.down.y = sp.y; P.down.face = -sp.face; }
+  // things set down travel with the work (carried along when it moves on to a new spot)
+  if (P.down && b.phase === 'work' && !b.walking && Math.hypot(P.down.x - (c.x - P.face * P.wh * .35), P.down.y - c.y) > P.wh * .6) { P.down.x = c.x - P.face * P.wh * .35; P.down.y = c.y; P.down.face = -P.face; }
   c.vx = c.vy = 0; c.grounded = true; c.facing = P.face;
   return true;
 }
@@ -501,7 +513,8 @@ function drawPlayer(T) {
   let pose;
   if (P.build) {   // working: setting down / picking up (the lift motion, no plank), or the build script's motion
     const b = P.build, A = TUWRig.actions, PUT = A.lift.dur / 2.6;
-    if (b.phase === 'work') pose = TUWBuild.pose(bridge(b.k), b.local || 0) || TUWRig.pose({ idle: 1 });
+    if (b.phase === 'work') pose = b.walking ? Object.assign({}, TUWRig.pose({ slope: b.wslope || 0, phase: b.wphase || 0 }), { tool: 'empty' })   // stepping up to the new edge
+      : (TUWBuild.pose(bridge(b.k), b.local || 0) || TUWRig.pose({ idle: 1 }));
     else {
       const u = Math.min(1, b.t / PUT), low = A.lift.pickup / A.lift.dur;   // things reach (or leave) the ground at the lowest point
       if (b.phase === 'put' && u >= low && !P.down) P.down = { x: c.x + P.face * P.wh * .32, y: c.y, face: P.face, items: holds(P.body) };
