@@ -24,11 +24,9 @@ canvas.scene{position:fixed;inset:0;width:100%;height:100%;z-index:2}
 .copy,.veil,.sun{transition:opacity .6s ease}
 body.playing{overflow:hidden}
 body.playing .copy,body.playing .veil{opacity:0;pointer-events:none}
-.hud,.playexit{position:fixed;z-index:6;opacity:0;pointer-events:none;transition:opacity .6s ease;font-size:15px;color:var(--ink)}
-.hud{left:24px;bottom:20px;font-style:italic;opacity:0}
+.playexit{position:fixed;z-index:6;opacity:0;pointer-events:none;transition:opacity .6s ease;font-size:15px;color:var(--ink)}
 .playexit{right:20px;top:18px;border:1px solid var(--ink);background:var(--paper);font:inherit;padding:.2em .8em;cursor:pointer}
-body.playing .hud{opacity:.75}body.playing .playexit,body.controlling .playexit{opacity:1;pointer-events:auto}
-body.controlling .hud{opacity:.55;left:auto;right:24px;text-align:right}
+body.playing .playexit,body.controlling .playexit{opacity:1;pointer-events:auto}
 dialog.joinbox{margin:auto;width:min(460px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;padding:30px 32px 26px;border:1px solid var(--ink);border-radius:0;background:var(--paper);color:var(--ink);font:inherit}
 dialog.joinbox::backdrop{background:rgba(241,237,228,.72);backdrop-filter:blur(2px)}
 .joinbox h2{font:inherit;font-style:italic;margin:0 0 .7em}
@@ -86,7 +84,6 @@ img.pic.photo{filter:grayscale(1) contrast(1.05);mix-blend-mode:multiply}
 <div id="dbg" hidden></div>
 
 <div class="sun" aria-hidden="true"></div>
-<div class="hud" id="hud">← → or A D to move · Space, W or ↑ to jump · S or ↓ to drop through a bridge · Esc to leave</div>
 <button class="playexit" id="playExit" type="button">Leave</button>
 <main class="copy">
   <h1 class="title">The Unfinished World</h1>
@@ -665,6 +662,9 @@ function drawPlayer(T) {
   const P = PLAY, c = P.c, J = TUWRig.jump, TN = PhysCharacter.TUNE;
   let acc = P.lastT == null ? 0 : Math.max(0, Math.min(.1, T - P.lastT)); P.lastT = T;
   const inp = { x: (KEYS.has('r') ? 1 : 0) - (KEYS.has('l') ? 1 : 0), jump: KEYS.has('j'), down: KEYS.has('dn') };
+  // a member who started moving before their profile arrived takes their own character as soon as it does (not mid-build)
+  const mine = window.tuwCharacter && TUWBodies.byId(window.tuwCharacter);
+  if (mine && mine !== P.body && !P.build && !P.down) { P.body = mine; P.wh = c.h = WALKER_H * (mine.height || 1); }
   for (let k = Math.round(-c.y / STEP) - 2; k <= Math.round(-c.y / STEP) + 1; k++) if (k >= 0) syncDeck(k, 0, TUWBuild.deckExtent(bridge(k)));
   const working = P.build && buildTick(P, T, acc, inp);   // working on a bridge: the work, not the controls, places the figure
   if (P.build && window.TUWWorld) TUWWorld.save(P.build.k, TUWBuild.snapshot(P.build.k));   // kept for everyone

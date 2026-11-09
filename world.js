@@ -64,6 +64,7 @@
   }
   function leave() { if (ch) ch.send({ type: 'broadcast', event: 'w', payload: { id: me, gone: true } }); }
   addEventListener('pagehide', leave);
-  // someone who stops sending (closed the tab, lost connection) fades out after a few seconds
-  setInterval(() => { const now = performance.now(); for (const [id, r] of remotes) if (now - r.frames[r.frames.length - 1].at > 6000) remotes.delete(id); }, 1000);
+  // someone who stops sending (closed or reloaded the tab, switched away, lost connection) goes after 2.5 s: players send
+  // ~10 times a second even standing still, and the goodbye sent as a page unloads often never leaves the socket
+  setInterval(() => { const now = performance.now(); for (const [id, r] of remotes) if (now - r.frames[r.frames.length - 1].at > 2500) remotes.delete(id); }, 500);
 })();

@@ -80,7 +80,7 @@ where they stand.
 Others (B4, `world.js`): while playing, your walker's state (position, speed, facing, slope, character, the build under
 way, things set down, its bridge's progress) is broadcast about ten times a second on the Realtime channel `gorge`, with
 a random id per tab and nothing about who you are. Everyone on the page, playing or not, draws the others 150 ms behind
-(interpolated) with the same rig, bodies and builder poses; someone silent for 6 s is dropped. Free-plan limits: 200
+(interpolated) with the same rig, bodies and builder poses; someone silent for 2.5 s is dropped (the goodbye sent on unload often never leaves the socket). Free-plan limits: 200
 concurrent connections and 2 million Realtime messages a month (every visitor on the page holds a connection).
 
 Steps: (B1) building animations from CMU construction recordings (subject 62 hammering, sawing, coiling rope; lifting),
