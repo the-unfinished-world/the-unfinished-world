@@ -29,7 +29,8 @@ body.playing .copy,body.playing .veil{opacity:0;pointer-events:none}
 .hud,.playexit{position:fixed;z-index:6;opacity:0;pointer-events:none;transition:opacity .6s ease;font-size:15px;color:var(--ink)}
 .hud{left:24px;bottom:20px;font-style:italic;opacity:0}
 .playexit{right:20px;top:18px;border:1px solid var(--ink);background:var(--paper);font:inherit;padding:.2em .8em;cursor:pointer}
-body.playing .hud{opacity:.75}body.playing .playexit{opacity:1;pointer-events:auto}
+body.playing .hud{opacity:.75}body.playing .playexit,body.controlling .playexit{opacity:1;pointer-events:auto}
+body.controlling .hud{opacity:.55;left:auto;right:24px;text-align:right}
 dialog.joinbox{margin:auto;width:min(460px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;padding:30px 32px 26px;border:1px solid var(--ink);border-radius:0;background:var(--paper);color:var(--ink);font:inherit}
 dialog.joinbox::backdrop{background:rgba(241,237,228,.72);backdrop-filter:blur(2px)}
 .joinbox h2{font:inherit;font-style:italic;margin:0 0 .7em}
@@ -264,16 +265,21 @@ function lockTime(Bk, u) { const sgm = route.find(s => s.kind === 'bridge' && s.
 // pinnacles under that bridge (solid). Gorge walls come in vertical bands. Built lazily as the camera moves.
 const phys = window.PhysWorld ? new PhysWorld({ cell: 64 }) : null;
 const LEDGE_SOLID = 2 * STEP - 200;   // depth of the solid band under each ledge top (the next ledge on that side is 2*STEP down)
+// the walkway of bridge k as a line (optionally trimmed at both ends, where it meets the ledges)
+function deckLine(k, trim) { const Bk = bridge(k), t = trim || 0, out = []; for (let s = t; s <= Bk.len - t; s += 10) { const p = Bk.at(Math.min(s, Bk.len - t)); out.push([p.x, p.y]); } return out; }
 function physChunk(k) {
   if (!phys || k < 0 || phys.has('k' + k)) return;
   const g = 'k' + k, L = ledge(k), Bk = bridge(k);
   // a ledge's rock mass reaches far down, but below its top band it is painted behind the ledges further down (they are
   // drawn over it); only the front band collides, so you walk in front of the cliff below and land on the next ledge
-  phys.add(PhysShapes.solid(PhysShapes.clip(L.poly, { y1: L.yTop + LEDGE_SOLID }), { material: 'rock', tag: 'ledge' + k }), g);
-  const deck = []; for (let s = 0; s <= Bk.len; s += 10) { const p = Bk.at(Math.min(s, Bk.len)); deck.push([p.x, p.y]); }
-  const end = Bk.at(Bk.len), B = ledge(k + 1); deck.push([end.x, end.y], [B.landing[0], B.landing[1]]);
-  phys.add(PhysShapes.platform(deck, { material: bridge(k).type === 'rope' ? 'rope' : 'wood', tag: 'bridge' + k, tolerance: .8 }), g);
-  Bk.pinnacles.forEach((pn, i) => phys.add(PhysShapes.solid(pinnaclePoly(pn), { material: 'rock', tag: `pin${k}_${i}` }), g));
+  const deck = deckLine(k), end = Bk.at(Bk.len), B = ledge(k + 1);
+  phys.add(PhysShapes.platform(deck.concat([[end.x, end.y], [B.landing[0], B.landing[1]]]), { material: bridge(k).type === 'rope' ? 'rope' : 'wood', tag: 'bridge' + k, tolerance: .8 }), g);
+  // solids: a bridge passes in front of anything its walkway runs through (that solid is painted behind it), so such a
+  // solid is left out and you walk past it; the pier pinnacles are the usual case
+  const near = [k - 1, k, k + 1].filter(j => j >= 0).map(j => deckLine(j, 24));
+  const solidIfClear = (pts, opts) => { if (near.some(line => PhysShapes.crosses(pts, line, WALKER_H))) return; phys.add(PhysShapes.solid(pts, opts), g); };
+  solidIfClear(PhysShapes.clip(L.poly, { y1: L.yTop + LEDGE_SOLID }), { material: 'rock', tag: 'ledge' + k });
+  Bk.pinnacles.forEach((pn, i) => solidIfClear(pinnaclePoly(pn), { material: 'rock', tag: `pin${k}_${i}` }));
 }
 // (the gorge walls in drawWall are not painted at present, so they get no colliders: only what is painted is solid)
 const DEBUG_COLLIDERS = /[?&]debug=colliders/.test(location.search);
@@ -373,19 +379,31 @@ const strideOf = slope => window.TUWRig ? TUWRig.stride(slope) : walker8Stride(s
 // Full screen: the text fades away, every bridge is built, the camera follows you. Esc or Leave hands the walk back.
 let PLAY = null;
 const KEYS = new Set(), PLAYKEYS = { ArrowLeft: 'l', a: 'l', A: 'l', ArrowRight: 'r', d: 'r', D: 'r', ArrowUp: 'j', w: 'j', W: 'j', ' ': 'j', ArrowDown: 'dn', s: 'dn', S: 'dn' };
-function enterPlay() {
+function enterPlay(full) {
   if (PLAY || !phys || !window.PhysCharacter || !window.__walker) return;
   const w = window.__walker, body = (window.tuwCharacter && TUWBodies.byId(window.tuwCharacter)) || w.body || TUWBodies.archetypes[0], wh = WALKER_H * (body.height || 1);
   for (let k = Math.max(0, w.pos.seg.k - 3); k <= w.pos.seg.k + 3; k++) physChunk(k);
   const c = new PhysCharacter(phys, { x: w.pos.x, y: w.pos.y, height: wh, facing: w.facing });
   c.grounded = true;
   PLAY = { c, body, wh, face: c.facing, flipAt: -9, flipFrom: c.facing, landAt: -9, phase: 0, lastX: c.x, lastT: null };
-  KEYS.clear(); window.scrollTo(0, 0); document.body.classList.add('playing'); document.getElementById('playExit').focus({ preventScroll: true });
+  KEYS.clear();
+  if (full) { window.scrollTo(0, 0); document.body.classList.add('playing'); document.getElementById('playExit').focus({ preventScroll: true }); }
+  else document.body.classList.add('controlling');   // arrow keys: walk right where you are, text stays
 }
-function exitPlay() { if (!PLAY) return; PLAY = null; KEYS.clear(); document.body.classList.remove('playing'); }
-document.getElementById('playBtn').addEventListener('click', enterPlay);
+function exitPlay() { if (!PLAY) return; PLAY = null; KEYS.clear(); document.body.classList.remove('playing', 'controlling'); }
+document.getElementById('playBtn').addEventListener('click', () => { if (PLAY) exitPlay(); enterPlay(true); });
 document.getElementById('playExit').addEventListener('click', exitPlay);
-addEventListener('keydown', e => { if (!PLAY) return; if (e.key === 'Escape') { exitPlay(); return; } const k = PLAYKEYS[e.key]; if (k) { KEYS.add(k); e.preventDefault(); } });
+addEventListener('keydown', e => {
+  const k = PLAYKEYS[e.key];
+  if (!PLAY) {   // a movement key takes the walker, unless typing or a dialog is open
+    const t = e.target, typing = t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(t.tagName)) && t.id !== 'playBtn';
+    if (!k || e.metaKey || e.ctrlKey || e.altKey || typing || document.querySelector('dialog[open]')) return;
+    enterPlay(false);
+  }
+  if (!PLAY) return;
+  if (e.key === 'Escape') { exitPlay(); return; }
+  if (k) { KEYS.add(k); e.preventDefault(); }
+});
 addEventListener('keyup', e => { const k = PLAYKEYS[e.key]; if (k) KEYS.delete(k); });
 addEventListener('blur', () => KEYS.clear());
 const smooth01 = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);

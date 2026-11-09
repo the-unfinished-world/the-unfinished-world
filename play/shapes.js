@@ -6,6 +6,9 @@
 //   PhysShapes.toJSON(colliders)       the neutral form: { version, units, up, colliders: [{ kind, closed, points,
 //                                      material, tag }] } (edges are derived again on load)
 //   PhysShapes.fromJSON(json)          back to colliders with classified edges
+//   PhysShapes.crosses(points, line, lift)  does a walkway (an open line, raised by 0..lift above itself) pass through
+//                                      this closed outline? A solid a walkway runs through is painted behind it, so a
+//                                      scene can leave it out of the physics (you walk in front of it)
 //   PhysShapes.clip(points, box)       cut a closed outline to a box { x0, y0, x1, y1 } (any side may be omitted);
 //                                      use it to keep only the part of a shape that should collide (e.g. the front
 //                                      band of a mass whose lower part is painted behind something nearer)
@@ -81,6 +84,22 @@
     }
     return pts;
   }
+  function inside(pts, x, y) {   // even-odd point in polygon
+    let c = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const [xi, yi] = pts[i], [xj, yj] = pts[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c;
+  }
+  function segX(a, b, c, d) {   // do segments ab and cd intersect
+    const o = (p, q, r) => Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]));
+    return o(a, b, c) !== o(a, b, d) && o(c, d, a) !== o(c, d, b);
+  }
+  function crosses(points, line, lift) {
+    const L = lift || 0;
+    for (const up of [0, L * .5, L]) {
+      const ln = line.map(p => [p[0], p[1] - up]);
+      for (const p of ln) if (inside(points, p[0], p[1])) return true;
+      for (let i = 0; i < ln.length - 1; i++) for (let j = 0; j < points.length; j++) if (segX(ln[i], ln[i + 1], points[j], points[(j + 1) % points.length])) return true;
+    }
+    return false;
+  }
   function toJSON(colliders, meta) {
     return Object.assign({ version: 1, units: 'scene', up: [0, -1] }, meta || {}, {
       colliders: colliders.map(c => ({ kind: c.kind, closed: c.closed, points: c.points.map(p => [+p[0].toFixed(2), +p[1].toFixed(2)]), material: c.material, tag: c.tag })) });
@@ -88,5 +107,5 @@
   function fromJSON(json, opts) {
     return json.colliders.map(c => (c.kind === 'platform' ? platform : solid)(c.points, Object.assign({ tolerance: 0, material: c.material, tag: c.tag }, opts)));
   }
-  root.PhysShapes = { solid, platform, clip, toJSON, fromJSON, simplifyOpen, simplifyClosed, classify };
+  root.PhysShapes = { solid, platform, clip, crosses, inside, toJSON, fromJSON, simplifyOpen, simplifyClosed, classify };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -35,6 +35,13 @@ Three layers, each usable on its own:
    jump buffer), slopes, one-way platforms, drop-through, landing. It outputs motion (velocity, grounded, facing),
    which drives the existing walker rig (`rig.js`) and bodies (`bodies.js`).
 
+Layering rule (2026-11-08): the painting is 2.5D, so a shape only collides where it is in front. A solid that a
+bridge walkway runs through is painted behind that bridge and is left out (`PhysShapes.crosses`); a ledge's rock mass
+only collides in its front band (`PhysShapes.clip`), since below that it is painted behind the ledges further down.
+
+Starting play: any movement key (arrows / WASD / Space) takes the walker right where it is, with the text still on the
+left; the "walk the gorge yourself" link opens the full-screen version. Esc or Leave hands the walk back.
+
 The scene supplies shapes through one adapter (`sceneShapes(kFrom, kTo)` in `index.html`): ledge outlines, rock
 pinnacles, the gorge walls and the bridge decks. Painting and physics read the same geometry functions.
 

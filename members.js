@@ -147,8 +147,8 @@
   // the walker in the scene is the door to the People view (its screen box is published each frame by the scene)
   const cv = document.getElementById('c');
   const onWalker = e => { const b = window.walkerBox; if (!b) return false; const pad = 16; return e.clientX > b.x0 - pad && e.clientX < b.x1 + pad && e.clientY > b.y0 - pad && e.clientY < b.y1 + pad; };
-  cv.addEventListener('mousemove', e => { const on = !document.body.classList.contains('playing') && onWalker(e); cv.style.cursor = on ? 'pointer' : ''; cv.title = on ? 'The people' : ''; });
-  cv.addEventListener('click', e => { if (!document.body.classList.contains('playing') && onWalker(e)) location.hash = location.hash === '#people' ? '' : '#people'; });   // not while playing
+  cv.addEventListener('mousemove', e => { const on = !document.body.classList.contains('playing') && !document.body.classList.contains('controlling') && onWalker(e); cv.style.cursor = on ? 'pointer' : ''; cv.title = on ? 'The people' : ''; });
+  cv.addEventListener('click', e => { if (!document.body.classList.contains('playing') && !document.body.classList.contains('controlling') && onWalker(e)) location.hash = location.hash === '#people' ? '' : '#people'; });   // not while playing
 
   // ---------- start ----------
   if (!window.supabase) { $('signinNote').textContent = 'Sign-in could not load. Please try again later.'; route(); return; }
