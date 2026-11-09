@@ -543,7 +543,8 @@ function frame(now) {
   // mist below, screen space
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   if (window.Weather) Weather.draw(ctx, T, W, H, S);   // leaves and gust streaks on the wind
-  const wy = OY + (pos.y - camV + 450) * S;
+  const focus = PLAY ? PLAY.c.y : pos.y, wy = OY + (focus - camV + 450) * S;   // fog below whoever the camera follows
+  if (window.Weather) Weather.drawMist(ctx, T, W, H, S, Weather.mist(-focus / STEP, T));   // cloud banks you climb through
   const mg = ctx.createLinearGradient(0, wy + 120 * S, 0, H); mg.addColorStop(0, 'rgba(241,237,228,0)'); mg.addColorStop(1, 'rgba(241,237,228,.95)');
   ctx.fillStyle = mg; ctx.fillRect(0, 0, W, H);
   document.getElementById('dbg').textContent = `ledge ${pos.seg.k} · ${pos.seg.kind} · altitude ${altitude.toFixed(1)} · cache ${CACHE.size}`;

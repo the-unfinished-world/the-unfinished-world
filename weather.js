@@ -5,6 +5,10 @@
 //   streaks - during a gust, dry-brush strokes sweep across: parallel hair-thin strands broken by gaps ("flying white")
 //   Weather.wind(T) -> { x, gust }   x: signed wind along screen x (negative = toward the left), gust: 0..~1.4
 //   Weather.draw(ctx, T, W, H, S)    call once per frame with the context in CSS pixels; S = scene scale
+//   Weather.mist(alt, T)             how deep in cloud you are (0..1) at an altitude (in ledges) and time: cloud banks
+//                                    sit at fixed heights in the gorge (about every five ledges), so climbing you pass
+//                                    up into one and out above it; they slowly thicken and thin over time
+//   Weather.drawMist(ctx, T, W, H, S, m)  the cloud you are in: a pale veil with soft sheets drifting on the wind
 (function () {
   const INK = '#1c1a17', ACCENT = '#b07a72', R = Math.random;
   const calm = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -22,6 +26,28 @@
   }
   function wind(T) { const base = .45 + .35 * Math.sin(T * .23) + .15 * Math.sin(T * .71 + 2), gust = gustAt(T); return { x: -(base + gust), gust }; }
 
+  // cloud banks: centre altitude (in ledges), half-thickness and density, from a fixed seed
+  function bank(i) { const r = seeded(i * 313 + 29); return { c: 3.5 + i * 5 + (r() - .5) * 1.6, half: .9 + r() * .7, d: .55 + r() * .4 }; }
+  function mist(alt, T) {
+    let m = 0;
+    for (let i = Math.max(0, Math.floor((alt - 3.5) / 5) - 1), n = i + 3; i < n; i++) {
+      const b = bank(i), u = Math.abs(alt - b.c) / b.half; if (u < 1) m = Math.max(m, b.d * Math.pow(Math.cos(u * Math.PI / 2), 2));
+    }
+    return m * (.8 + .2 * Math.sin(T * .045 + 1.3));   // the banks breathe slowly
+  }
+  function drawMist(ctx, T, W, H, S, m) {
+    if (m < .01) return;
+    ctx.save();
+    ctx.fillStyle = '#efeae0'; ctx.globalAlpha = .62 * m; ctx.fillRect(0, 0, W, H);   // the pale of being inside cloud
+    // soft sheets of cloud drifting across on the wind
+    const w = wind(T);
+    for (let k = 0; k < 4; k++) {
+      const y = H * (.15 + k * .24) + Math.sin(T * .17 + k * 2.1) * 30 * S, h = (90 + 50 * Math.sin(k * 1.7)) * S, x = ((T * w.x * 22 * S * (1 + k * .3) + k * 517) % (W * 1.6) + W * 1.6) % (W * 1.6) - W * .3;
+      const g = ctx.createLinearGradient(0, y - h, 0, y + h); g.addColorStop(0, 'rgba(241,237,228,0)'); g.addColorStop(.5, 'rgba(241,237,228,1)'); g.addColorStop(1, 'rgba(241,237,228,0)');
+      ctx.globalAlpha = .55 * m; ctx.fillStyle = g; ctx.fillRect(x - W * .7, y - h, W * 1.4, h * 2);
+    }
+    ctx.restore();
+  }
   const leaves = [], streaks = [];
   let lastT = null, lastGust = 0, primed = false;
   function leaf(W, H, S, edge) {
@@ -105,5 +131,5 @@
     for (const s of streaks) drawStreak(ctx, s, S);
     for (const l of leaves) drawLeaf(ctx, l);
   }
-  window.Weather = { wind, gustAt, draw };
+  window.Weather = { wind, gustAt, draw, mist, drawMist };
 })();
