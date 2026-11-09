@@ -9,6 +9,8 @@
 //   PhysShapes.crosses(points, line, lift)  does a walkway (an open line, raised by 0..lift above itself) pass through
 //                                      this closed outline? A solid a walkway runs through is painted behind it, so a
 //                                      scene can leave it out of the physics (you walk in front of it)
+//   PhysShapes.tops(points, opts)      the walkable top lines of a closed outline (its 'ground' edges, joined), for when
+//                                      only the top of a shape should be landable (as one-way platforms)
 //   PhysShapes.clip(points, box)       cut a closed outline to a box { x0, y0, x1, y1 } (any side may be omitted);
 //                                      use it to keep only the part of a shape that should collide (e.g. the front
 //                                      band of a mass whose lower part is painted behind something nearer)
@@ -100,6 +102,17 @@
     }
     return false;
   }
+  function tops(points, opts) {
+    const c = solid(points, Object.assign({ tolerance: 0 }, opts)), lines = [];
+    let cur = null;
+    for (const e of c.edges) {
+      if (e.cls !== 'ground') { cur = null; continue; }
+      if (cur && cur[cur.length - 1] === e.a) cur.push(e.b); else lines.push(cur = [e.a, e.b]);
+    }
+    // the ring may have started mid-run: join the last run onto the first if they meet
+    if (lines.length > 1 && lines[lines.length - 1][lines[lines.length - 1].length - 1] === lines[0][0]) lines[0] = lines.pop().concat(lines[0].slice(1));
+    return lines;
+  }
   function toJSON(colliders, meta) {
     return Object.assign({ version: 1, units: 'scene', up: [0, -1] }, meta || {}, {
       colliders: colliders.map(c => ({ kind: c.kind, closed: c.closed, points: c.points.map(p => [+p[0].toFixed(2), +p[1].toFixed(2)]), material: c.material, tag: c.tag })) });
@@ -107,5 +120,5 @@
   function fromJSON(json, opts) {
     return json.colliders.map(c => (c.kind === 'platform' ? platform : solid)(c.points, Object.assign({ tolerance: 0, material: c.material, tag: c.tag }, opts)));
   }
-  root.PhysShapes = { solid, platform, clip, crosses, inside, toJSON, fromJSON, simplifyOpen, simplifyClosed, classify };
+  root.PhysShapes = { solid, platform, clip, crosses, inside, tops, toJSON, fromJSON, simplifyOpen, simplifyClosed, classify };
 })(typeof window !== 'undefined' ? window : globalThis);

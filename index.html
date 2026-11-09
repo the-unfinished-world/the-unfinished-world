@@ -275,9 +275,13 @@ function physChunk(k) {
   const deck = deckLine(k), end = Bk.at(Bk.len), B = ledge(k + 1);
   phys.add(PhysShapes.platform(deck.concat([[end.x, end.y], [B.landing[0], B.landing[1]]]), { material: bridge(k).type === 'rope' ? 'rope' : 'wood', tag: 'bridge' + k, tolerance: .8 }), g);
   // solids: a bridge passes in front of anything its walkway runs through (that solid is painted behind it), so such a
-  // solid is left out and you walk past it; the pier pinnacles are the usual case
+  // solid keeps only its top, as a one-way surface you can land on (drop from the deck, jump up), and you walk past its
+  // sides; the pier pinnacles are the usual case
   const near = [k - 1, k, k + 1].filter(j => j >= 0).map(j => deckLine(j, 24));
-  const solidIfClear = (pts, opts) => { if (near.some(line => PhysShapes.crosses(pts, line, WALKER_H))) return; phys.add(PhysShapes.solid(pts, opts), g); };
+  const solidIfClear = (pts, opts) => {
+    if (!near.some(line => PhysShapes.crosses(pts, line, WALKER_H))) { phys.add(PhysShapes.solid(pts, opts), g); return; }
+    for (const top of PhysShapes.tops(pts)) phys.add(PhysShapes.platform(top, Object.assign({}, opts, { tolerance: .5, tag: opts.tag + '-top' })), g);
+  };
   solidIfClear(PhysShapes.clip(L.poly, { y1: L.yTop + LEDGE_SOLID }), { material: 'rock', tag: 'ledge' + k });
   Bk.pinnacles.forEach((pn, i) => solidIfClear(pinnaclePoly(pn), { material: 'rock', tag: `pin${k}_${i}` }));
 }

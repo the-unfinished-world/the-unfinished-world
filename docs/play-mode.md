@@ -36,7 +36,8 @@ Three layers, each usable on its own:
    which drives the existing walker rig (`rig.js`) and bodies (`bodies.js`).
 
 Layering rule (2026-11-08): the painting is 2.5D, so a shape only collides where it is in front. A solid that a
-bridge walkway runs through is painted behind that bridge and is left out (`PhysShapes.crosses`); a ledge's rock mass
+bridge walkway runs through is painted behind that bridge: it keeps only its top, as a one-way surface you can land on, and
+you walk past its sides (`PhysShapes.crosses`, `PhysShapes.tops`); a ledge's rock mass
 only collides in its front band (`PhysShapes.clip`), since below that it is painted behind the ledges further down.
 
 Starting play: any movement key (arrows / WASD / Space) takes the walker right where it is, with the text still on the
