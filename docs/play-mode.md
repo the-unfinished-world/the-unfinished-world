@@ -69,6 +69,19 @@ working; walking away pauses it and it resumes where it stopped. Nothing builds 
   back to the walker's own timeline, so for now your building is not kept after you leave (until B3 saves it).
   A member's own character is the walker: when it arrives after load, the builds are recorded afresh with that body.
 
+Saved and shared (B3, `world.js`, `supabase/004_bridges.sql`): each bridge's progress is { step, frac, done } and is
+saved through `build_bridge`, which only moves it forward; `bridges_state` loads it. While you build it is saved every
+1.5 s and at each new step. Others' progress arriving (from the database or a builder's live messages) is applied with
+`TUWBuild.setProgress`, never backward; new pieces fly in. Taking over the walker keeps what it built while you watched.
+The walker's own builds are not saved unless you take over; it walks bridges people have finished and carries on
+half-built ones from where they stand.
+
+Others (B4, `world.js`): while playing, your walker's state (position, speed, facing, slope, character, the build under
+way, things set down, its bridge's progress) is broadcast about ten times a second on the Realtime channel `gorge`, with
+a random id per tab and nothing about who you are. Everyone on the page, playing or not, draws the others 150 ms behind
+(interpolated) with the same rig, bodies and builder poses; someone silent for 6 s is dropped. Free-plan limits: 200
+concurrent connections and 2 million Realtime messages a month (every visitor on the page holds a connection).
+
 Steps: (B1) building animations from CMU construction recordings (subject 62 hammering, sawing, coiling rope; lifting),
 shown on the bodies for a look; (B2) the build spot, E, progress and the growing bridge, locally, with the stroller
 building too; (B3) shared, saved bridge state in Supabase; (B4) other people's walkers.

@@ -4,7 +4,8 @@ The site is static (GitHub Pages). Everything member-related goes from the brows
 
 - Organization **The Unfinished World** (free plan), project **tuw-collective** (`pzzivuxhfpaiucbfqypw`, us-west-1).
 - SQL, in order: `schema.sql` (table), then `002_profiles.sql` (sign-in-only profiles, People list, photo bucket),
-  then `003_characters.sql` (the profile `figure` holds a walker character id from `bodies.js`).
+  then `003_characters.sql` (the profile `figure` holds a walker character id from `bodies.js`),
+  then `004_bridges.sql` (the gorge's bridges: build progress kept for everyone).
 - Front end: `members.js` plus the `<dialog id="joinDialog">` and `<div id="people">` in `index.html`.
   The key in `members.js` is the publishable key, which is meant to be public.
 
@@ -19,8 +20,10 @@ The site is static (GitHub Pages). Everything member-related goes from the brows
 - **"Show me on the People page"** is off by default. Only people who tick it appear, and emails are never shown.
 - **The People view** opens by clicking the walker in the scene (the cursor changes over it) or from `#people`.
   It replaces the text column and has a Back link.
-- The database only exposes three functions: `my_profile()` and `save_profile(...)` for the signed-in person, and
-  `people()` for everyone. The `members` table itself is closed. Photos live in the public `avatars` bucket, and
+- The database only exposes these functions: `my_profile()` and `save_profile(...)` for the signed-in person,
+  `people()` for everyone, and for the gorge `bridges_state()` and `build_bridge(k, step, frac, done)` for anyone
+  (progress only moves forward). The live walkers of other players go over Supabase Realtime broadcast (channel
+  `gorge`) and are never stored (`world.js`). The `members` table itself is closed. Photos live in the public `avatars` bucket, and
   each person can write only to a folder named after their own account.
 - Earlier form sign-ups (before sign-in existed) are kept. When that person signs in with a Google account
   that has the same email, their entry is picked up automatically.

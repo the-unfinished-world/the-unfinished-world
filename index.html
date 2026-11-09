@@ -157,6 +157,7 @@ img.pic.photo{filter:grayscale(1) contrast(1.05);mix-blend-mode:multiply}
 <script src="play/controller.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="members.js" defer></script>
+<script src="world.js" defer></script>
 <script>
 const { rng, roughen, smooth, pathOf, bbox, wash, contour, cun, dots, pine, mist, fadeBase, rock, INK } = Ink;
 const PAPER = '#f1ede4';
@@ -256,8 +257,9 @@ function routeDistOf(k, x, y) {   // where on the route (bridge k or ledge k + 1
   for (const sg of [bs, lg]) for (let i = 0; i <= 120; i++) { const t = i / 120, p = sg.fn(t), e = Math.hypot(p.x - x, p.y - y); if (e < best) { best = e; d = sg.s0 + t * sg.len; } }
   return d;
 }
-function makeEpisode(k, dStart) {
-  const Bk = bridge(k), s = TUWBuild.state(k); s.step = 0; s.frac = 0; s.done = false; s.t = new Map();
+function makeEpisode(k, dStart) {   // null when the bridge is already built
+  const Bk = bridge(k), sp = shared().get(k); if (sp && sp.done) return null;
+  TUWBuild.reset(k); const s = TUWBuild.state(k); TUWBuild.setProgress(Bk, sp, -1e9);   // carry on from where people left it
   const p = walkerAt(dStart), out = Math.sign(Bk.P2.x - Bk.P0.x) || 1, body = bodyFor(k), wh = walkerH(k);
   const A = { c: { x: p.x, y: p.y, vx: 0, vy: 0, grounded: true, facing: out }, body, wh, face: out, build: { k, phase: 'put', t: 0, local: 0 }, down: null };
   const rec = [], still = { x: 0, jump: false, down: false };
@@ -266,23 +268,31 @@ function makeEpisode(k, dStart) {
     rec.push({ x: A.c.x, y: A.c.y, face: A.face, b: A.build && Object.assign({}, A.build), down: A.down, step: s.step, frac: s.frac });
   }
   const offs = s.t, last = rec[rec.length - 1], sc = TUWBuild.prep(Bk).sc, lg = route.find(r => r.kind === 'ledge' && r.k === k + 1);
-  s.step = 0; s.frac = 0; s.done = false; s.t = new Map();
+  TUWBuild.reset(k);
   // a rope bridge ends on the far landing facing back along the ledge, as if turned: the walk goes on from there
   const onFar = sc[sc.length - 1].at === 'far'; if (onFar) SKIPTURN.add(k + 1);
   return { k, rec, offs, body, wh, dur: rec.length * EP_DT, dEnd: onFar ? turnDist(lg) + 3 : routeDistOf(k, last.x, last.y) };
 }
-let EP_CHAR;   // the builds are recorded with the walker's body: when a member's character arrives (or changes), record afresh
+// The builds are recorded with the walker's body and from the bridges' saved progress: when a member's character
+// arrives (or changes), or the saved progress first arrives, record afresh. Later saves (other people building) are
+// picked up by builds not yet recorded; a bridge already finished by someone is simply walked.
+let EP_KEY;
+const shared = () => window.TUWWorld ? TUWWorld.shared : new Map();
 function checkWalkTimeline() {
-  const ch = window.tuwCharacter || null; if (ch === EP_CHAR) return; EP_CHAR = ch;
-  TD.t = [0]; TD.d = [0]; EPIS.clear(); SKIPTURN.clear(); pauses.clear(); NEXT_EP = null;
+  if (PLAY) return;
+  const key = (window.tuwCharacter || '') + '|' + !!(window.TUWWorld && TUWWorld.loaded); if (key === EP_KEY) return; EP_KEY = key;
+  TD.t = [0]; TD.d = [0]; EPIS.clear(); SKIPTURN.clear(); pauses.clear(); NEXT_EP = null; TUWBuild.reset();
 }
 function episodeAt(T) { for (const ep of EPIS.values()) if (T >= ep.t0 && T < ep.t1) return ep; return null; }
 const epFrame = (ep, T) => ep.rec[Math.max(0, Math.min(ep.rec.length - 1, Math.floor((T - ep.t0) / EP_DT)))];
-function applyStroll(T, kLo, kHi) {   // bridges kLo..kHi as the walker's builds leave them at time T
+function applyStroll(T, kLo, kHi) {   // bridges kLo..kHi as the walker's builds leave them at time T, else as saved
   for (let k = kLo; k <= kHi; k++) {
-    const ep = EPIS.get(k), s = TUWBuild.state(k);
-    if (!ep || T < ep.t0) { if (s.t.size || s.done || s.step) { s.t = new Map(); s.step = 0; s.frac = 0; s.done = false; } continue; }
-    s.t = ep.tmap;   // pieces placed later in the build simply are not drawn yet
+    const ep = EPIS.get(k); let s = TUWBuild.state(k);
+    if (!ep || T < ep.t0) {
+      if (s.fromEp) { TUWBuild.reset(k); s = TUWBuild.state(k); }
+      TUWBuild.setProgress(bridge(k), shared().get(k), s.t.size ? T : -1e9); continue;   // others' work arriving flies in
+    }
+    s.t = ep.tmap; s.fromEp = true;   // pieces placed later in the build simply are not drawn yet
     if (T >= ep.t1) { s.done = true; s.step = TUWBuild.prep(bridge(k)).sc.length; s.frac = 0; }
     else { const r = epFrame(ep, T); s.step = r.step; s.frac = r.frac; s.done = false; }
   }
@@ -293,7 +303,9 @@ function extendTD(tNeed, dNeed) {
     const i = TD.t.length - 1, d0 = TD.d[i] + 40, d1 = d0 + vAt(d0) * TD.dt;
     if (NEXT_EP && TD.t[i] >= NEXT_EP.t) {   // stop and build: the recording is a dwell, then a jump to where it ended
       const k = NEXT_EP.k; NEXT_EP = null;
-      const ep = makeEpisode(k, d0); ep.t0 = TD.t[i]; ep.t1 = ep.t0 + ep.dur; ep.tmap = new Map([...ep.offs].map(([sl, o]) => [sl, ep.t0 + o])); EPIS.set(k, ep);
+      const ep = makeEpisode(k, d0);
+      if (!ep) continue;   // built already: walk on
+      ep.t0 = TD.t[i]; ep.t1 = ep.t0 + ep.dur; ep.tmap = new Map([...ep.offs].map(([sl, o]) => [sl, ep.t0 + o])); EPIS.set(k, ep);
       for (let t = TD.dt; t < ep.dur; t += TD.dt) { TD.t.push(ep.t0 + t); TD.d.push(TD.d[i]); }
       TD.t.push(ep.t1); TD.d.push(ep.dEnd - 40);
       if (SKIPTURN.has(k + 1)) NEXT_EP = { k: k + 1, t: ep.t1 + .4 };   // ended on the far landing, past its turn: build the next one from there
@@ -451,10 +463,12 @@ function enterPlay(full) {
   const w = window.__walker, body = (window.tuwCharacter && TUWBodies.byId(window.tuwCharacter)) || w.body || TUWBodies.archetypes[0], wh = WALKER_H * (body.height || 1);
   // the bridges as the walker's builds left them; a build in progress is yours to carry on
   const Tn = (performance.now() - t0) / 1000;
-  for (const [k, ep] of EPIS) { const s = TUWBuild.state(k);
+  for (const [k, ep] of EPIS) { let s = TUWBuild.state(k);
     if (Tn >= ep.t1) { s.t = new Map(ep.tmap); TUWBuild.complete(bridge(k)); }
     else if (Tn >= ep.t0) { const r = epFrame(ep, Tn); s.t = new Map([...ep.tmap].filter(([, t]) => t <= Tn)); s.step = r.step; s.frac = r.frac; s.done = false; }
-    else { s.t = new Map(); s.step = 0; s.frac = 0; s.done = false; } }
+    else { TUWBuild.reset(k); s = TUWBuild.state(k); TUWBuild.setProgress(bridge(k), shared().get(k), -1e9); continue; }
+    s.fromEp = false; if (window.TUWWorld) TUWWorld.save(k, TUWBuild.snapshot(k));   // what your walker built while you watched is kept
+  }
   for (let k = Math.max(0, w.pos.seg.k - 3); k <= w.pos.seg.k + 3; k++) { physChunk(k); syncDeck(k, 0, TUWBuild.deckExtent(bridge(k))); }
   const c = new PhysCharacter(phys, { x: w.pos.x, y: w.pos.y, height: wh, facing: w.facing });
   c.grounded = true;
@@ -464,7 +478,7 @@ function enterPlay(full) {
   if (full) { window.scrollTo(0, 0); document.body.classList.add('playing'); document.getElementById('playExit').focus({ preventScroll: true }); }
   else document.body.classList.add('controlling');   // arrow keys: walk right where you are, text stays
 }
-function exitPlay() { if (!PLAY) return; PLAY = null; KEYS.clear(); document.body.classList.remove('playing', 'controlling'); }
+function exitPlay() { if (!PLAY) return; PLAY = null; if (window.TUWWorld) TUWWorld.leave(); KEYS.clear(); document.body.classList.remove('playing', 'controlling'); }
 // (full-screen play, enterPlay(true), has no button at the moment: movement keys start play in place)
 document.getElementById('playExit').addEventListener('click', exitPlay);
 addEventListener('keydown', e => {
@@ -615,6 +629,28 @@ function drawBuildExtras(P, pose) {   // things set down beside the builder, thi
   if (P.build && P.build.inHand && P.build.phase !== 'work') { const hd = pose.P('handL'); drawHeld(holds(P.body), [c.x + hd[0] * P.wh * P.face, c.y - hd[1] * P.wh], P.face, P.wh); }
   if (P.build && P.build.phase === 'work') drawLine(TUWBuild.line(bridge(P.build.k), P.build.local || 0, buildGeo(P.build.k, pose, c, P.face, P.wh)));
 }
+// ---- the others: people playing right now elsewhere (world.js), drawn a moment behind so their motion is smooth ----
+function drawRemotes(T) {
+  if (!window.TUWWorld) return;
+  const now = performance.now() - 150, J = TUWRig.jump, TN = PhysCharacter.TUNE;
+  for (const [id, r] of TUWWorld.remotes) {
+    const F = r.frames; if (!F.length) continue;
+    let i = F.length - 1; while (i > 0 && F[i - 1].at > now) i--;
+    const a = (F[i - 1] || F[i]), b = F[i], u = b.at === a.at ? 1 : Math.max(0, Math.min(1, (now - a.at) / (b.at - a.at))), s = b.s;
+    const body = TUWBodies.byId(r.body) || TUWBodies.archetypes[0], wh = WALKER_H * (body.height || 1), x = lerp(a.s.x, s.x, u), y = lerp(a.s.y, s.y, u);
+    const A = r.actor || (r.actor = { phase: 0, lastX: x });
+    Object.assign(A, { c: { x, y }, body, wh, face: s.f || 1, build: s.b, down: s.d });
+    let pose;
+    if (s.b) pose = buildPose(A, T);
+    else if (s.g) { const sp = Math.abs(s.vx) / wh, run = smooth01((sp - .9) / .9), idle = 1 - smooth01(sp / .35); A.phase += Math.abs(x - A.lastX) / (TUWRig.stride(s.sl || 0, run) * wh) * Math.PI * 2; pose = TUWRig.pose({ slope: s.sl || 0, phase: A.phase, run, idle }); }
+    else { const v = s.vy / (TN.jumpVel * wh), tc = v < 0 ? J.apex + (J.takeoff - J.apex) * Math.min(1, -v) : J.apex + (J.land - .04 - J.apex) * Math.min(1, v * 1.4); pose = J.pose(tc, 1); }
+    A.lastX = x; pose = easeModes(A, pose, T); drawBuildExtras(A, pose);
+    const dir = A.face * (pose.mirror ? -1 : 1), age = performance.now() - b.at, alpha = .82 * (1 - smooth01((age - 4000) / 2000));
+    drawWalkerBrush(ctx, { x, y, h: wh, phase: A.phase, alpha, color: INK,
+      draw: (cc, o) => drawBody(cc, body, pose, { x: o.x, y: o.y, h: o.h, dir, color: o.color, time: T }),
+      drawLines: (cc, o) => drawBodyLines(cc, body, pose, { x: o.x, y: o.y, h: o.h, dir, lineColor: o.lineColor, time: T }) });
+  }
+}
 const STROLL = {};   // the walker while it builds (eases between motions like the player)
 function drawEpisode(ep, r, T) {
   Object.assign(STROLL, { c: { x: r.x, y: r.y }, body: ep.body, wh: ep.wh, face: r.face, build: r.b, down: r.down });
@@ -631,6 +667,7 @@ function drawPlayer(T) {
   const inp = { x: (KEYS.has('r') ? 1 : 0) - (KEYS.has('l') ? 1 : 0), jump: KEYS.has('j'), down: KEYS.has('dn') };
   for (let k = Math.round(-c.y / STEP) - 2; k <= Math.round(-c.y / STEP) + 1; k++) if (k >= 0) syncDeck(k, 0, TUWBuild.deckExtent(bridge(k)));
   const working = P.build && buildTick(P, T, acc, inp);   // working on a bridge: the work, not the controls, places the figure
+  if (P.build && window.TUWWorld) TUWWorld.save(P.build.k, TUWBuild.snapshot(P.build.k));   // kept for everyone
   if (!working) while (acc > 1e-6) { const h = Math.min(1 / 120, acc); c.step(h, inp); acc -= h; if (c.events.includes('land')) P.landAt = T; }
   // fell below the bottom of the gorge: back onto the lowest ledge
   if (c.y > ledge(0).yTop + 420) { const L0 = ledge(0); c.x = L0.landing[0] - L0.dir * 40; c.y = L0.landing[1] - 30; c.vx = c.vy = 0; c.grounded = false; P.spawnAt = T; }   // the mist gives you back
@@ -656,6 +693,8 @@ function drawPlayer(T) {
   drawBuildExtras(P, pose);   // and the hint at a building spot, below
   if (pose.mirror) dir = -dir;   // a mirrored pose (hanging on the line) is drawn facing the other way
   if (!P.build && c.grounded) { const w = nearestWork(c); if (w) drawHint(w.sp, P.wh); }
+  if (window.TUWWorld) TUWWorld.send({ x: +c.x.toFixed(1), y: +c.y.toFixed(1), vx: +c.vx.toFixed(1), vy: +c.vy.toFixed(1), g: c.grounded, f: P.face, sl: +(c.slope || 0).toFixed(3), ch: P.body.id,
+    b: P.build || null, d: P.down || null, p: P.build ? Object.assign({ k: P.build.k }, TUWBuild.snapshot(P.build.k)) : null });
   const fadeIn = P.spawnAt == null ? 1 : smooth01((T - P.spawnAt) / .7);   // reappear like ink soaking into paper
   drawWalkerBrush(ctx, { x: c.x, y: c.y, h: P.wh, phase: P.phase, alpha: fadeIn, color: INK,
     draw: (cc, o) => drawBody(cc, P.body, pose, { x: o.x, y: o.y, h: o.h, dir, color: o.color, wind, time: T }),
@@ -691,6 +730,7 @@ function frame(now) {
     ctx.globalAlpha = Math.min(depthA, above > 1.6 ? Math.max(.25, 1 - (above - 1.6) * .5) : 1); bridge(k).pinnacles.forEach((pn, i) => drawPinnacle(k, i, pn)); drawLedge(L); ctx.globalAlpha = 1; }
   const frontPieces = [];
   if (!PLAY) applyStroll(T, kLo, kHi);
+  else for (let k = kLo; k <= kHi; k++) TUWBuild.setProgress(bridge(k), shared().get(k), T);   // others' building arrives
   for (let k = kLo; k <= kHi; k++) {
     const Bk = bridge(k); extendRoute(k + 2);
     for (const sl of Bk.slots) {
@@ -702,6 +742,7 @@ function frame(now) {
       Bridges.place(ctx, sl, x, y, rot, al);
     }
   }
+  drawRemotes(T);
   if (PLAY) { drawPlayer(T); prevT = T; prevPos = pos; }
   else if (ep) { drawEpisode(ep, epR, T); window.__walker = { pos, body: ep.body, facing: epR.face, ep, r: epR }; prevT = T; prevPos = pos; }
   else {

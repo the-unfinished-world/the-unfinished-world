@@ -101,6 +101,13 @@
     const s = state(Bk.k), { sc, lists } = prep(Bk); if (s.done) return null;
     const st = sc[s.step], list = lists[s.step];
     s.frac = Math.min(1, s.frac + dt / durOf(Bk, st));
+    reveal(Bk, s, T);
+    if (s.frac >= 1) { for (const sl of list) if (!s.t.has(sl)) s.t.set(sl, T); s.step++; s.frac = 0; if (s.step >= sc.length) s.done = true; }
+    return s.done ? null : sc[s.step];
+  }
+  // the pieces of the current step that are up at its present fraction (placed at time T if new)
+  function reveal(Bk, s, T) {
+    const { sc, lists } = prep(Bk), st = sc[s.step], list = lists[s.step];
     if (st.perCycle) {   // pieces up to the stretch being hammered in this cycle
       const N = cyclesOf(Bk, st), x = s.frac * N, n = Math.floor(x), u = x - n, a0 = actsOf(st), hs = (R().actions[a0[0].n].dur / a0[0].speed) / cycleDur(st);
       const upto = Math.min(Bk.len, (n + Math.max(0, (u - hs) / (1 - hs))) * st.perCycle) + (s.frac >= 1 ? 1e9 : 0);
@@ -109,9 +116,21 @@
       const n = st.atEnd ? (s.frac >= .97 ? list.length : 0) : Math.floor(s.frac * list.length + 1e-9);
       for (let i = 0; i < n; i++) if (!s.t.has(list[i])) s.t.set(list[i], T);
     }
-    if (s.frac >= 1) { for (const sl of list) if (!s.t.has(sl)) s.t.set(sl, T); s.step++; s.frac = 0; if (s.step >= sc.length) s.done = true; }
-    return s.done ? null : sc[s.step];
   }
+  // saved / shared progress: { step, frac, done }. progress(k) as one number (done = Infinity) for comparing;
+  // setProgress brings a bridge up to p, never back (new pieces placed at time T); reset forgets a bridge
+  function progress(k) { const s = STATES.get(k); return !s ? 0 : s.done ? Infinity : s.step + s.frac; }
+  function snapshot(k) { const s = STATES.get(k); return s ? { step: s.step, frac: s.frac, done: s.done } : { step: 0, frac: 0, done: false }; }
+  function setProgress(Bk, p, T) {
+    if (!p) return false;
+    const s = state(Bk.k), { sc, lists } = prep(Bk), want = p.done ? Infinity : p.step + p.frac;
+    if (!(want > progress(Bk.k))) return false;
+    if (p.done || p.step >= sc.length) { for (const sl of Bk.slots) if (!s.t.has(sl)) s.t.set(sl, T); s.done = true; s.step = sc.length; s.frac = 0; return true; }
+    s.step = p.step; s.frac = Math.max(0, Math.min(1, p.frac)); s.done = false;
+    for (let j = 0; j < s.step; j++) for (const sl of lists[j]) if (!s.t.has(sl)) s.t.set(sl, T);
+    reveal(Bk, s, T); return true;
+  }
+  function reset(k) { if (k == null) STATES.clear(); else STATES.delete(k); }
   function revealed(Bk, sl) { const s = STATES.get(Bk.k); if (!s) return null; const t = s.t.get(sl); return t == null ? null : t; }
   function deckExtent(Bk) {
     const s = STATES.get(Bk.k); if (!s) return 0; if (s.done) return Bk.len;
@@ -183,5 +202,5 @@
   }
   // where the builder stands on the deck during the current cycle: just behind the edge laid by the cycles before
   function station(Bk) { const st = step(Bk); if (!st || !st.perCycle) return null; const s = state(Bk.k), n = Math.floor(s.frac * cyclesOf(Bk, st) + 1e-9); return Math.max(4, Math.min(Bk.len - 4, n * st.perCycle - 8)); }
-  window.TUWBuild = { state, complete, advance, revealed, deckExtent, step, pose, line, along, travelU, HANG, prep, station, durOf, scripts: SCRIPTS };
+  window.TUWBuild = { state, complete, progress, snapshot, setProgress, reset, advance, revealed, deckExtent, step, pose, line, along, travelU, HANG, prep, station, durOf, scripts: SCRIPTS };
 })();
