@@ -289,6 +289,13 @@
     function tool(t) {
       if (t === 'hammer') { const wr = P('wristL'), hd = P('handL'), d = sub(hd, wr), L = len(d) || 1, u = [d[0] / L, d[1] / L], tip = add(hd, u, .11), n = [-u[1], u[0]];
         limb(wr, tip, .014, .014); limb(add(tip, n, -.035), add(tip, n, .03), .028, .024); }
+      if (t === 'saw') {   // a hand saw in the near hand, through a timber on a trestle in front
+        const wr = P('wristL'), hd = P('handL'), d = sub(hd, wr), L = len(d) || 1, u = [d[0] / L, d[1] / L], n = [-u[1], u[0]], tip = add(hd, u, .2);
+        limb(wr, add(hd, u, .02), .016, .016); shape([add(hd, n, -.012), add(tip, n, -.006), add(tip, n, .012), add(hd, n, .04)], 0);
+        const by = Math.max(.2, hd[1] - .08), x0 = .08, x1 = .62;
+        limb([x0, by], [x1, by], .03, .03); limb([x0 + .08, by], [x0 + .03, 0], .012, .012); limb([x1 - .08, by], [x1 - .03, 0], .012, .012);
+      }
+      if (t === 'stone') { const m = lerp2(P('handL'), P('handR'), .5), C = S([m[0], m[1] - .015]); ctx.beginPath(); ctx.ellipse(C[0], C[1], .075 * h * Math.abs(sx) * fc, .055 * h, .2, 0, Math.PI * 2); ctx.fill(); }
       if (t === 'plank') { const a = P('handL'), b = P('handR'), m = lerp2(a, b, .5), d = sub(b, a), L = len(d) || 1, u = L > .03 ? [d[0] / L, d[1] / L] : [1, 0]; limb(add(m, u, -.22), add(m, u, .22), .028, .028); }
       if (t === 'rope') {   // the coil hangs from the holding hand (left) and grows as it is coiled (pose.toolSize 0..1);
         // the working hand (right) pulls rope from the supply and lays it on: a strand runs from that hand to the coil

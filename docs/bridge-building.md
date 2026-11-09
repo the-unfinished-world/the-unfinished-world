@@ -28,29 +28,33 @@ walking out over what you have already built. You lay a deck by walking out on i
 
 ## Timber truss (launched across, as small timber bridges were)
 
-1. Saw the timbers to length; a pile builds up beside you. (saw 62_03)
-2. Peg the first truss side together at the edge: chords, verticals, braces. (hammer 62_10; the near panel appears)
-3. Push it out over the gap, add the next panel, push again: the truss grows outward until its end lands on the far
-   lip. (push 81_05 alternating with hammer; panels appear near to far)
-4. Same for the second side. (as above)
-5. Walk out nailing cross beams and deck planks, then the handrail. (lift + hammer; deck near to far, with you on it)
+1. Saw the timbers to length on a trestle. (saw 62_03, the stroke enlarged so it reads at the walker's size)
+2. Set the near sill. (hammer 62_10; the near abutment)
+3. Peg a panel, push it out, peg the next: the truss grows outward until it lands on the far lip. (hammer and push 81_05
+   in turn; chords, verticals and braces appear near to far, then the far sill)
+4. Walk out laying and nailing the deck. (place + hammer; deck and cleats near to far, with you on them)
 
-## Pier trestle (on the rock pillar)
+## Pier trestle (on the rock pillars)
 
-1. Carry the timbers to the edge. (carry 70_xx)
-2. Lower the trestle legs onto the pillar on a rope. (lowering, ~pull reversed)
-3. Climb down onto the pillar top and set the cap beam. (ladder 13_33, hammer; legs, braces, cap)
-   The pillar tops are already places you can stand.
-4. Climb back, slide the stringers out from the ledge onto the cap, then on to the far lip. (push/drag 81_05 / 81_08)
-5. Walk out nailing the deck, then posts and rails. (lift + hammer; near to far)
+1. Saw the timbers. (saw 62_03)
+2. Send each trestle out to its pillar on a rope and set it up there: foot, legs, braces, cap. (haul 81_08, paying out;
+   a line runs from your hand to the pillar top; one pillar after the other)
+3. Slide the stringers out over the caps to the far lip. (push 81_05; stringers and sills near to far)
+4. Walk out laying the deck; posts and rails go up with it. (place + hammer)
 
 ## Cantilever (the Bhutanese bazam)
 
-1. Carry stones and stack the counterweight cairn on the ledge. (carry 70_xx, lift; stones appear)
-2. Slide the first beam tier out over the edge with its tail under the stones. (push 81_05; tier 1)
-3. Each next tier slides out further over the one below and is weighted down. (push, lift stones; tiers 2-4)
-4. The far side: throw a line, cross hand over hand, build the far stack from the far bank. (throw, hang/traverse, push)
-5. Stringers across, then the deck walking out. (push, lift + hammer)
+1. Slide the near beam tiers out over the edge, one above the other. (push 81_05; tiers bottom up)
+2. Weight their tails with stones. (lift and place 26_10, carrying a stone; the cairn)
+3. Coil the line, then throw it from the coil until it bites on the far landing. (coil 62_21, throw 141_11)
+4. Cross on the line hand over hand, hanging under it. (ladder climb 13_33 turned on its side and mirrored, so up the
+   ladder is along the rope and facing the ladder is facing the rope; it follows the line's slope)
+5. Build the far stack from the far bank. (push; far tiers, sockets, the far knee strut)
+6. Slide back down the line. (the climb held still)
+7. Push the stringers across from the near side; the posts and the near knee strut go in. (push)
+8. Walk out laying the deck, with posts and rails. (place + hammer)
+
+Durations: truss about 28 s, pier about 27 s, rope about 39 s, cantilever about 41 s (plus the walks up the deck).
 
 ## Open choices
 

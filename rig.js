@@ -142,6 +142,21 @@
   for (const k in AC) { const c = AC[k]; if (c.tool !== 'plank') continue; let lo = 1e9; c.pickup = 0; c.frames.forEach((f, i) => { const y = f[2 * IDX.handL + 1] + f[2 * IDX.handR + 1]; if (y < lo) { lo = y; c.pickup = i / c.fps; } }); }
   // placing is lifting played backwards: stand holding it, bend, set it down, straighten with empty hands
   if (AC.lift) AC.place = Object.assign({}, AC.lift, { reverse: true });
+  // hanging from a rope: a climbing pose turned on its side, so "up the ladder" becomes "along the rope" (+x) and "facing
+  // the ladder" becomes "facing the rope" (up), at the rope's slope ang (radians, + = rising ahead). That is a mirror
+  // image, so the pose is turned by PI/2 - ang and marked mirror: the scene draws it facing the other way, which mirrors
+  // it properly (bodies, faces and garments included). The hands' midpoint lands k body heights above the pose origin.
+  function onRope(p, ang, k) {
+    const hm = mid(p.P('handL'), p.P('handR')), b = Math.PI / 2 - ang, c = Math.cos(b), s = Math.sin(b);
+    const T = q => { const x = q[0] - hm[0], y = q[1] - hm[1]; return [x * c - y * s, x * s + y * c + k]; };
+    const a = p.angles, A = v => v + b;
+    return Object.assign({}, p, { P: n => T(p.P(n)), mirror: true, angles: { head: A(a.head), torsoUp: A(a.torsoUp), footL: A(a.footL), footR: A(a.footR), toeL: A(a.toeL), toeR: A(a.toeR) } });
+  }
+  // the same body seen in a mirror (for easing between a mirrored pose and a plain one)
+  function mirrored(p) {
+    const a = p.angles, A = v => Math.PI - v, ang = {}; for (const key in a) ang[key] = A(a[key]);
+    return Object.assign({}, p, { P: n => { const q = p.P(n); return [-q[0], q[1]]; }, angles: ang, mirror: !p.mirror });
+  }
   const actions = {}; for (const k in AC) actions[k] = { dur: AC[k].dur, loop: AC[k].loop, tool: AC[k].tool, pickup: AC[k].pickup, reverse: !!AC[k].reverse };
-  window.TUWRig = { pose, stride, clips, joints: J, turn, blend, jump, run: RUN, action, actions };
+  window.TUWRig = { pose, stride, clips, joints: J, turn, blend, jump, run: RUN, action, actions, onRope, mirrored };
 })();

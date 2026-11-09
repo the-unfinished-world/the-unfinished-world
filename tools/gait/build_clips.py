@@ -32,6 +32,10 @@ ACTIONS = {
     'throw':  ('141_11', 3.70, 5.20, False, True, None),     # an overhand throw (subject 141), the grapnel line
     'push':   ('81_05', 5.23, 7.53, True, False, None),      # bent low, driving forward (subject 81): raising, launching
     'haul':   ('81_08', 4.98, 7.72, True, False, None),      # bent, pulling backward (subject 81): hauling the cables
+    'saw':    ('62_03', 4.00, 4.80, True, True, 'saw', 2.6),  # four short strokes of a hand saw (subject 62); the sawing arm's
+                                                              # stroke is enlarged 2.6x so it reads at the walker's size
+    'climb':  ('13_33', 2.00, 4.70, True, False, None),     # one full cycle up a ladder (subject 13): turned on its side in
+                                                              # the scene, it is the hand-over-hand crossing on a rope
 }
 N = 40                        # samples per stride
 # standard skeleton: our joint name -> CMU bone whose END is that joint (L = near side, seen walking to the right)
@@ -222,7 +226,7 @@ def jump_clip(folder, trial, t0, t1):
     print('jump', trial, 'dur', out['dur'], 'takeoff', out['takeoff'], 'apex', out['apex'], 'land', out['land'], file=sys.stderr)
     return out
 
-def action_clip(folder, trial, t0, t1, loop, mirror, tool):
+def action_clip(folder, trial, t0, t1, loop, mirror, tool, amp=None):
     F = load(folder, trial); H = height(F); i0, i1 = int(round(t0 * 60)), int(round(t1 * 60))
     def facing(f):
         l, r = f['hipL'], f['hipR']; d = [l[0] - r[0], l[2] - r[2]]; fx, fz = -d[1], d[0]; n = math.hypot(fx, fz) or 1; return [fx / n, fz / n]
@@ -240,6 +244,10 @@ def action_clip(folder, trial, t0, t1, loop, mirror, tool):
         for k in range(N + 1):
             for q in JOINTS: raw[k][q] = [raw[k][q][c] - (raw[N][q][c] - raw[0][q][c]) * k / N for c in range(2)]
         raw = raw[:-1]
+    if amp:   # enlarge the near (working) arm's motion about its average
+        for q in ('elbowL', 'wristL', 'handL'):
+            m = [sum(fr[q][c] for fr in raw) / len(raw) for c in range(2)]
+            for fr in raw: fr[q] = [m[c] + (fr[q][c] - m[c]) * amp for c in range(2)]
     st = side(F[0]); g1 = min(st['ankleL'][1], st['ankleR'][1])   # the subject standing at the start: rest angles
     def a(p, q): return math.atan2(q[1] - p[1], q[0] - p[0])
     rest = {'footL': round(a(st['ankleL'], st['ballL']), 4), 'footR': round(a(st['ankleR'], st['ballR']), 4),

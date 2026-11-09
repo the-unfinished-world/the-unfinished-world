@@ -429,11 +429,23 @@ const smooth01 = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
 // is done or when you move (which pauses the work; stand where it stopped and press E to carry on).
 const HELD = /^(staff|crook|javelin|laurel|scroll|lantern|shield|spear)$/;
 const holds = body => (body.props || []).filter(p => HELD.test(p));
+// the line someone crosses the gorge on (cantilever): staked HANG body heights up at the building spot and at the far landing
+function crossing(k) {
+  const Bk = bridge(k), out = Math.sign(Bk.P2.x - Bk.P0.x) || 1, B = ledge(k + 1), up = TUWBuild.HANG * (PLAY ? PLAY.wh : WALKER_H);
+  return { from: [Bk.P0.x - out * 20, ledge(k).edgeOut[1] - up], to: [B.landing[0], B.landing[1] - up], sag: .06, up };
+}
 function buildSpot(k) {   // where the builder stands for the current step of bridge k: { x, y, face }
   const Bk = bridge(k), st = TUWBuild.step(Bk), L = ledge(k), out = Math.sign(Bk.P2.x - Bk.P0.x) || 1; if (!st) return null;
   if (st.at === 'deck') { const p = Bk.at(TUWBuild.station(Bk) || 4); return { x: p.x, y: p.y, face: out }; }
   if (st.at === 'far') { const B = ledge(k + 1); return { x: B.landing[0], y: B.landing[1], face: -out }; }
+  if (st.at === 'line') { const C = crossing(k), p = TUWBuild.along(C, TUWBuild.travelU(Bk)); return { x: p[0], y: p[1] + C.up, face: out, line: true }; }
   return { x: Bk.P0.x - out * 20, y: L.edgeOut[1], face: out };
+}
+function buildGeo(k, pose, c, face, wh) {   // the scene points a build step's line and pose need (see build.js)
+  const Bk = bridge(k), cross = crossing(k), toS = q => [c.x + q[0] * wh * face * (pose && pose.mirror ? -1 : 1), c.y - q[1] * wh];
+  let far = cross.to;
+  if (Bk.type === 'rope') { const a = Bk.slots.filter(s => s._end === 'far' && s.kind === 'anchor').sort((a, b) => Math.abs(a.x - Bk.P2.x) - Math.abs(b.x - Bk.P2.x))[0]; if (a) far = [a.x, a.y]; }
+  return { cross, far, L: pose ? toS(pose.P('handL')) : null, R: pose ? toS(pose.P('handR')) : null };
 }
 function nearestWork(c) {   // an unbuilt bridge whose current spot you are standing at
   const kp = Math.round(-c.y / STEP);
@@ -442,8 +454,8 @@ function nearestWork(c) {   // an unbuilt bridge whose current spot you are stan
 }
 function buildTick(T, dt, inp) {
   const P = PLAY, c = P.c, b = P.build, Bk = bridge(b.k), A = TUWRig.actions, held = holds(P.body).length > 0, PUT = A.lift.dur / 2.6;
-  const moving = inp.x !== 0 || inp.jump;
-  if (b.phase === 'work' && moving) { b.phase = 'take'; b.t = 0; }   // move to stop: pick things up first
+  const moving = inp.x !== 0 || inp.jump, cur = TUWBuild.step(Bk);
+  if (b.phase === 'work' && moving && !(cur && cur.at === 'line')) { b.phase = 'take'; b.t = 0; }   // move to stop: pick things up first (not while hanging over the gorge)
   b.t += dt;
   if (b.phase === 'put') { if (!held || b.t >= PUT) { b.phase = 'work'; b.t = 0; } }
   else if (b.phase === 'work') {
@@ -451,12 +463,9 @@ function buildTick(T, dt, inp) {
     // ahead of it reach about half a body length, at the end of a work cycle (build, build, build, then step up)
     const st = TUWBuild.step(Bk); if (!st) { b.phase = 'take'; b.t = 0; }
     else {
-      let tgt = buildSpot(b.k);
-      if (st.at === 'deck') {
-        const out = Math.sign(Bk.P2.x - Bk.P0.x) || 1, p = Bk.at(TUWBuild.station(Bk) || 4); tgt = { x: p.x, y: p.y, face: out };
-      }
+      const tgt = buildSpot(b.k);
       const dx = tgt.x - c.x, dy = tgt.y - c.y, d = Math.hypot(dx, dy);
-      if (d > 2.5) {   // walk there (the work waits)
+      if (d > 2.5 && !tgt.line) {   // (on the line the work itself moves you: no walking)   // walk there (the work waits)
         const v = P.wh * .9 * dt, m = Math.min(1, v / d); c.x += dx * m; c.y += dy * m; P.face = Math.sign(dx) || tgt.face;
         b.walking = true; b.wphase = (b.wphase || 0) + Math.min(v, d) / (TUWRig.stride(Math.atan2(-dy, Math.abs(dx) || 1)) * P.wh) * Math.PI * 2; b.wslope = Math.atan2(-dy, Math.abs(dx) || 1);
       } else {
@@ -466,7 +475,8 @@ function buildTick(T, dt, inp) {
     }
   } else if (b.phase === 'take') { if (!held || b.t >= PUT) { P.build = null; P.down = null; return false; } }
   // things set down travel with the work (carried along when it moves on to a new spot)
-  if (P.down && b.phase === 'work' && !b.walking && Math.hypot(P.down.x - (c.x - P.face * P.wh * .35), P.down.y - c.y) > P.wh * .6) { P.down.x = c.x - P.face * P.wh * .35; P.down.y = c.y; P.down.face = -P.face; }
+  const stNow = TUWBuild.step(Bk);   // (only along ground you walked: not across on the line)
+  if (P.down && b.phase === 'work' && !b.walking && stNow && (stNow.at === 'spot' || stNow.at === 'deck') && Math.hypot(P.down.x - (c.x - P.face * P.wh * .35), P.down.y - c.y) > P.wh * .6) { P.down.x = c.x - P.face * P.wh * .35; P.down.y = c.y; P.down.face = -P.face; }
   c.vx = c.vy = 0; c.grounded = true; c.facing = P.face;
   return true;
 }
@@ -498,7 +508,9 @@ function drawHeld(items, hand, face, wh) {   // a staff, spear, shield... carrie
 }
 function drawLine(L) {   // the grapnel line: flying out on its arc, falling short, then lying across the gorge
   if (!L) return; const [ax, ay] = L.from, [bx, by] = L.to;
-  ctx.save(); ctx.strokeStyle = INK; ctx.lineWidth = 1.2; ctx.globalAlpha = .8; ctx.beginPath(); ctx.moveTo(ax, ay);
+  ctx.save(); ctx.strokeStyle = INK; ctx.lineWidth = 1.2; ctx.globalAlpha = .8;
+  if (L.stakes) { ctx.lineWidth = 2.4; ctx.beginPath(); for (const [x, y] of [L.from, L.to]) { ctx.moveTo(x, y - 3); ctx.lineTo(x, y + L.up); } ctx.stroke(); ctx.lineWidth = 1.2; }
+  ctx.beginPath(); ctx.moveTo(ax, ay);
   if (L.done) { const mx = (ax + bx) / 2, my = (ay + by) / 2 + Math.hypot(bx - ax, by - ay) * L.sag; ctx.quadraticCurveTo(mx, my, bx, by); }
   else {
     const reach = L.reach, v = Math.min(1, L.v * 1.6), fall = Math.max(0, L.v * 1.6 - 1);   // out along the arc, then (short throws) drop
@@ -528,7 +540,7 @@ function drawPlayer(T) {
   if (P.build) {   // working: setting down / picking up (the lift motion, no plank), or the build script's motion
     const b = P.build, A = TUWRig.actions, PUT = A.lift.dur / 2.6;
     if (b.phase === 'work') pose = b.walking ? Object.assign({}, TUWRig.pose({ slope: b.wslope || 0, phase: b.wphase || 0 }), { tool: 'empty' })   // stepping up to the new edge
-      : (TUWBuild.pose(bridge(b.k), b.local || 0) || TUWRig.pose({ idle: 1 }));
+      : (TUWBuild.pose(bridge(b.k), b.local || 0, buildGeo(b.k, null, c, P.face, P.wh)) || TUWRig.pose({ idle: 1 }));
     else {
       // setting down: the placing motion (lifting backwards), the things in hand until they touch the ground;
       // picking up: the lifting motion, the things in hand from the moment they leave the ground
@@ -553,7 +565,7 @@ function drawPlayer(T) {
   if (P.xfFrom) {
     const w = smooth01((T - P.xfAt) / .35);
     if (w >= 1) P.xfFrom = null;
-    else { const f = P.xfFrom, q = TUWRig.blend(f, pose, w); pose = w < .5 ? Object.assign(q, { tool: f.tool, toolSize: f.toolSize, coilHand: f.coilHand, strand: f.strand, pile: f.pile, grapnel: f.grapnel }) : q; }
+    else { const f = !P.xfFrom.mirror !== !pose.mirror ? (P.xfFrom = TUWRig.mirrored(P.xfFrom)) : P.xfFrom, q = TUWRig.blend(f, pose, w); pose = w < .5 ? Object.assign(q, { tool: f.tool, toolSize: f.toolSize, coilHand: f.coilHand, strand: f.strand, pile: f.pile, grapnel: f.grapnel }) : q; }
   }
   P.lastPose = pose;
   // turning on the spot: a quick narrowing through three-quarters instead of a flip
@@ -563,9 +575,8 @@ function drawPlayer(T) {
   // things set down beside the builder, the grapnel line, and the hint at a building spot
   if (P.down) drawDown(P.down, P.wh);
   if (P.build && P.build.inHand && P.build.phase !== 'work') { const hd = pose.P('handL'); drawHeld(holds(P.body), [c.x + hd[0] * P.wh * P.face, c.y - hd[1] * P.wh], P.face, P.wh); }
-  if (P.build && P.build.phase === 'work') { const Bk = bridge(P.build.k), toS = q => [c.x + q[0] * P.wh * P.face, c.y - q[1] * P.wh], hand = { L: toS(pose.P('handL')), R: toS(pose.P('handR')) };
-    const far = Bk.slots.filter(s => s._end === 'far' && s.kind === 'anchor').sort((a, b) => Math.abs(a.x - Bk.P2.x) - Math.abs(b.x - Bk.P2.x))[0], tgt = far ? [far.x, far.y] : [Bk.P2.x, Bk.P2.y];
-    drawLine(TUWBuild.line(Bk, P.build.local || 0, hand, tgt)); }
+  if (P.build && P.build.phase === 'work') drawLine(TUWBuild.line(bridge(P.build.k), P.build.local || 0, buildGeo(P.build.k, pose, c, P.face, P.wh)));
+  if (pose.mirror) dir = -dir;   // a mirrored pose (hanging on the line) is drawn facing the other way
   if (!P.build && c.grounded) { const w = nearestWork(c); if (w) drawHint(w.sp, P.wh); }
   const fadeIn = P.spawnAt == null ? 1 : smooth01((T - P.spawnAt) / .7);   // reappear like ink soaking into paper
   drawWalkerBrush(ctx, { x: c.x, y: c.y, h: P.wh, phase: P.phase, alpha: fadeIn, color: INK,
