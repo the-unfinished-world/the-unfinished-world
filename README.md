@@ -26,8 +26,7 @@ The walker is built in three swappable layers, so one change reaches every chara
 
 On each ledge the walker turns with a recorded 180-degree step-turn (CMU subject 39, `turn` in `gait-clips.js`):
 the steps are timed to meet it on a foot strike, the body narrows and its chest widens as it faces us, and the next
-person takes over with an ink dissolve at that moment. Some ledges hold the turn for a few seconds, three-quarters
-toward us, looking out over the gorge. A slow gusting wind (stronger on rope bridges) moves hems, cloaks, long hair
+person takes over with an ink dissolve at that moment. A slow gusting wind (stronger on rope bridges) moves hems, cloaks, long hair
 and the lantern, and garments carry paper-coloured fold lines like the vase drawings.
 
 Visitors see a random character on each crossing; a signed-in member walks as the character chosen in their

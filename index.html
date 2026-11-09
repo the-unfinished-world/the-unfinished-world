@@ -15,6 +15,7 @@ body::after{content:"";position:fixed;inset:0;pointer-events:none;opacity:.34;mi
 canvas.scene{position:fixed;inset:0;width:100%;height:100%;z-index:2}
 .veil{position:fixed;left:0;top:0;bottom:0;width:640px;z-index:3;pointer-events:none;background:linear-gradient(90deg,rgba(241,237,228,.92) 0%,rgba(241,237,228,.86) 55%,rgba(241,237,228,0) 100%)}
 .title{font-family:"IM Fell English","EB Garamond",Georgia,serif;font-size:34px;font-weight:400;line-height:1.15;margin:0 0 1.1em}
+.sun{position:fixed;left:446px;top:30px;width:58px;height:58px;border-radius:50%;background:#efc7c3;opacity:.85;filter:blur(2.5px);z-index:4;pointer-events:none}
 .copy{position:relative;z-index:5;max-width:420px;margin-left:56px;padding:40px 0 40vh;text-align:center}
 .copy p{margin:0 0 .55em}
 .copy a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--ink)}
@@ -66,7 +67,7 @@ img.pic.photo{filter:grayscale(1) contrast(1.05);mix-blend-mode:multiply}
 .cue{position:fixed;left:56px;bottom:28px;z-index:7;opacity:.55;transition:opacity .4s}
 .cue.off{opacity:0}
 .fade{position:fixed;left:0;bottom:0;width:640px;height:140px;z-index:6;pointer-events:none;background:linear-gradient(180deg,rgba(241,237,228,0),rgba(241,237,228,.95))}
-@media (max-width:760px){.veil{width:100%;background:rgba(241,237,228,.8)}.copy{margin:0 24px;max-width:none}.title{font-size:31px}body{font-size:19px}}
+@media (max-width:760px){.sun{left:auto;right:18px;top:22px;width:44px;height:44px}.veil{width:100%;background:rgba(241,237,228,.8)}.copy{margin:0 24px;max-width:none}.title{font-size:31px}body{font-size:19px}}
 </style>
 </head>
 <body>
@@ -76,6 +77,7 @@ img.pic.photo{filter:grayscale(1) contrast(1.05);mix-blend-mode:multiply}
 
 <div id="dbg" hidden></div>
 
+<div class="sun" aria-hidden="true"></div>
 <main class="copy">
   <h1 class="title">The Unfinished World</h1>
   <a class="join" href="#join" data-join>Join the Collective</a>
@@ -131,6 +133,7 @@ img.pic.photo{filter:grayscale(1) contrast(1.05);mix-blend-mode:multiply}
 </dialog>
 
 <script src="ink.js"></script>
+<script src="weather.js"></script>
 <script src="bridges.js"></script>
 <script src="walker7.js"></script>
 <script src="walker8.js"></script>
@@ -216,9 +219,9 @@ function turnGap(d) { extendRoute(Math.floor(d / 450) + 3); let g = 1e9; for (co
 const easeGap = g => { const u = Math.min(1, g / 28); return u * u * (3 - 2 * u); };
 const vAt = d => SPEED * (.22 + .78 * easeGap(turnGap(d)));
 const TD = { t: [0], d: [0], dt: 1 / 120 };
-// Pauses: on some ledges the walker stops at the turn, three-quarters toward us, and looks out over the gorge.
+// Pauses (off for now, see pauseAt): a ledge could hold the turn, three-quarters toward us, looking out over the gorge.
 // The pause is a dwell in the time-distance table, so everything timed off it (bridge building) stays in step.
-const PAUSE = 2.6, pauseAt = k => k % 3 === 2 && rng(k * 131 + 7)() < .85;
+const PAUSE = 2.6, pauseAt = k => false;   // pauses switched off: every ledge simply turns
 const turnDist = sg => sg.s0 + sg.turnAt * sg.len;
 const pauses = new Map();   // ledge k -> { t0, t1 } (the dwell, in scene seconds)
 function extendTD(tNeed, dNeed) {
@@ -370,7 +373,7 @@ function frame(now) {
   const dirIn = lg ? -lg.dir : pos.seg.dir, after = lg && T >= (tArr || 0) + dwell;
   let facing = pos.seg.kind === 'ledge' ? (pos.t < pos.seg.turnAt ? -pos.seg.dir : pos.seg.dir) : pos.seg.dir, wx = pos.x, wyy = pos.y;
   // wind: one slow gusting wind across the gorge, stronger on rope bridges, gentler on the ledges
-  const windNow = (.45 + .35 * Math.sin(T * .23) + .15 * Math.sin(T * .71 + 2)) * (pos.seg.kind === 'ledge' ? .6 : bridge(pos.seg.k).type === 'rope' ? 1.3 : .9) * -1;
+  const windNow = Math.max(-1.5, Math.min(1.5, (window.Weather ? Weather.wind(T).x * .7 : -.45) * (pos.seg.kind === 'ledge' ? .6 : bridge(pos.seg.k).type === 'rope' ? 1.3 : .9)));
   // The walker stands between the rails: the far side was drawn behind; the whole near side is drawn after, in front.
   // the walker: recorded motion (rig.js) on a body (bodies.js); each crossing gets its own person
   const drawPerson = (body, wh, pose, dir, alpha) => drawWalkerBrush(ctx, { x: wx, y: wyy, h: wh, phase, alpha, color: INK,
@@ -405,10 +408,9 @@ function frame(now) {
   for (const [sl, x, y, rot, al] of frontPieces) Bridges.place(ctx, sl, x, y, rot, al);
   ctx.restore();
 
-  // moon above everything, soft edge
-  ctx.setTransform(dpr * S, 0, 0, dpr * S, OX * dpr, OY * dpr); ctx.save(); ctx.filter = 'blur(3px)'; ctx.globalAlpha = .85; ctx.fillStyle = '#efc7c3'; ctx.beginPath(); ctx.arc(1180, 190 - (camV - cam.y) * .07, 60, 0, Math.PI * 2); ctx.fill(); ctx.restore();
   // mist below, screen space
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (window.Weather) Weather.draw(ctx, T, W, H, S);   // leaves and gust streaks on the wind
   const wy = OY + (pos.y - camV + 450) * S;
   const mg = ctx.createLinearGradient(0, wy + 120 * S, 0, H); mg.addColorStop(0, 'rgba(241,237,228,0)'); mg.addColorStop(1, 'rgba(241,237,228,.95)');
   ctx.fillStyle = mg; ctx.fillRect(0, 0, W, H);
