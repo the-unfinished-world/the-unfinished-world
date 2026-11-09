@@ -1,6 +1,6 @@
 # Building the bridges, one person at a time
 
-Draft for discussion, 2026-11-08. How each of the four bridges would really be built by one person working from the
+Decided 2026-11-08 (Nikhil): cantilever far side by crossing on a rope and building there; about 20-40 s per bridge. How each of the four bridges would really be built by one person working from the
 near ledge with what they carry, and the animation steps that follow from it. Each step names the recorded motion it
 uses (CMU motion capture) and which parts of the bridge appear while it plays (the bridge pieces in `bridges.js`).
 
@@ -49,17 +49,16 @@ walking out over what you have already built. You lay a deck by walking out on i
 1. Carry stones and stack the counterweight cairn on the ledge. (carry 70_xx, lift; stones appear)
 2. Slide the first beam tier out over the edge with its tail under the stones. (push 81_05; tier 1)
 3. Each next tier slides out further over the one below and is weighted down. (push, lift stones; tiers 2-4)
-4. The far side: an open choice (below).
+4. The far side: throw a line, cross hand over hand, build the far stack from the far bank. (throw, hang/traverse, push)
 5. Stringers across, then the deck walking out. (push, lift + hammer)
 
 ## Open choices
 
-- Cantilever far side: a real bazam has a stack on both banks. Alone you would need to cross first. Options: (a) the
-  near stack reaches far enough that the stringers rest on the far lip (the far stack is not built); (b) throw a line,
-  cross hand over hand, and build the far stack from there; (c) keep the far stack and let it appear when you reach
-  the far ledge.
-- Time per bridge: real work, sped up. A first target is about 20-40 seconds of building per bridge, longer for the
-  rope bridge (it has the most steps).
+- Cantilever far side (decided): throw a line, cross hand over hand, build the far stack from the far bank, then lay
+  the deck.
+- Time per bridge (decided): about 20-40 seconds, the rope bridge at the long end.
+- Coiling (from Nikhil): the left hand holds the coil, the right pulls rope from the pile and lays it on; a strand runs
+  from the working hand back to the coil, and the coil grows turn by turn.
 - Shared bridges: progress is saved per bridge and per step, so someone else can pick up where you stopped.
 
 ## How it is built

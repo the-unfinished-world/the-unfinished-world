@@ -290,10 +290,18 @@
       if (t === 'hammer') { const wr = P('wristL'), hd = P('handL'), d = sub(hd, wr), L = len(d) || 1, u = [d[0] / L, d[1] / L], tip = add(hd, u, .11), n = [-u[1], u[0]];
         limb(wr, tip, .014, .014); limb(add(tip, n, -.035), add(tip, n, .03), .028, .024); }
       if (t === 'plank') { const a = P('handL'), b = P('handR'), m = lerp2(a, b, .5), d = sub(b, a), L = len(d) || 1, u = L > .03 ? [d[0] / L, d[1] / L] : [1, 0]; limb(add(m, u, -.22), add(m, u, .22), .028, .028); }
-      if (t === 'rope') {   // a coil that grows as it is coiled (pose.toolSize 0..1): more turns, each a little larger
-        const m = lerp2(P('handL'), P('handR'), .5), C = S(add(m, [.02, -.03], 1)), g = Math.max(0, Math.min(1, pose.toolSize == null ? .6 : pose.toolSize)), turns = 2 + Math.round(g * 6);
-        ctx.lineWidth = .01 * h; for (let i = 0; i < turns; i++) { const r = .025 + (.025 + .075 * g) * (i + 1) / turns; ctx.beginPath(); ctx.ellipse(C[0] + i * .002 * h * sx, C[1] + r * .25 * h, r * .75 * h * Math.abs(sx) * fc, r * h, .15 * Math.sign(sx), 0, Math.PI * 2); ctx.stroke(); }
-        const tail = S(add(m, [.03, -.12 - .1 * g], 1)); ctx.beginPath(); ctx.moveTo(C[0], C[1] + .03 * h); ctx.quadraticCurveTo(C[0] + .06 * h * sx, (C[1] + tail[1]) / 2 + .04 * h, tail[0], tail[1]); ctx.stroke();   // the free end hanging down
+      if (t === 'rope') {   // the coil hangs from the holding hand (left) and grows as it is coiled (pose.toolSize 0..1);
+        // the working hand (right) pulls rope from the supply and lays it on: a strand runs from that hand to the coil
+        const g = Math.max(0, Math.min(1, pose.toolSize == null ? .6 : pose.toolSize)), turns = 2 + Math.round(g * 6), R0 = .025 + .1 * g;
+        const hold = P('handL'), work = P('handR'), cen = add(hold, [.005, -R0 * .8], 1), C = S(cen);
+        ctx.lineWidth = .01 * h;
+        for (let i = 0; i < turns; i++) { const r = .025 + (R0 - .025 + .025) * (i + 1) / turns; ctx.beginPath(); ctx.ellipse(C[0] + i * .002 * h * sx, C[1] + (R0 - r) * .3 * h, r * .75 * h * Math.abs(sx) * fc, r * h, .15 * Math.sign(sx), 0, Math.PI * 2); ctx.stroke(); }
+        // the strand: from the top of the coil to the working hand, sagging more when the hand is close (slack)
+        const top = add(cen, [0, R0 * .9], 1), d = len(sub(work, top)), sag = Math.max(0, .09 - d * .35), mid = add(lerp2(top, work, .5), [0, -sag], 1), A0 = S(top), M = S(mid), W0 = S(work);
+        ctx.beginPath(); ctx.moveTo(A0[0], A0[1]); ctx.quadraticCurveTo(M[0], M[1], W0[0], W0[1]); ctx.stroke();
+        // and from the working hand the rest of the rope runs down to the pile at the feet
+        const pile = [Math.max(P('toeL')[0], P('toeR')[0]) + .06, .01], Pm = S(add(lerp2(work, pile, .5), [.04, -.03], 1)), Pp = S(pile);
+        ctx.beginPath(); ctx.moveTo(W0[0], W0[1]); ctx.quadraticCurveTo(Pm[0], Pm[1], Pp[0], Pp[1]); ctx.stroke();
       }
     }
     props(0); arm('R'); leg('R'); if (body.garment) garment(body.garment); torso(); head(); leg('L'); arm('L'); props(1); if (pose.tool) tool(pose.tool);
