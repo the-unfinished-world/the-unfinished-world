@@ -72,9 +72,10 @@ working; walking away pauses it and it resumes where it stopped. Nothing builds 
 Saved and shared (B3, `world.js`, `supabase/004_bridges.sql`): each bridge's progress is { step, frac, done } and is
 saved through `build_bridge`, which only moves it forward; `bridges_state` loads it. While you build it is saved every
 1.5 s and at each new step. Others' progress arriving (from the database or a builder's live messages) is applied with
-`TUWBuild.setProgress`, never backward; new pieces fly in. Taking over the walker keeps what it built while you watched.
-The walker's own builds are not saved unless you take over; it walks bridges people have finished and carries on
-half-built ones from where they stand.
+`TUWBuild.setProgress`, never backward; new pieces fly in. The walker's own builds are never saved (decided 2026-11-09: only bridges a person works on are kept, so an idle page
+builds nothing for anyone). Taking over keeps them visible to you for that visit; carry on the one it was building and
+that bridge is saved as you work. The walker walks bridges people have finished and carries on half-built ones from
+where they stand.
 
 Others (B4, `world.js`): while playing, your walker's state (position, speed, facing, slope, character, the build under
 way, things set down, its bridge's progress) is broadcast about ten times a second on the Realtime channel `gorge`, with

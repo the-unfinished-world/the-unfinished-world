@@ -467,7 +467,7 @@ function enterPlay(full) {
     if (Tn >= ep.t1) { s.t = new Map(ep.tmap); TUWBuild.complete(bridge(k)); }
     else if (Tn >= ep.t0) { const r = epFrame(ep, Tn); s.t = new Map([...ep.tmap].filter(([, t]) => t <= Tn)); s.step = r.step; s.frac = r.frac; s.done = false; }
     else { TUWBuild.reset(k); s = TUWBuild.state(k); TUWBuild.setProgress(bridge(k), shared().get(k), -1e9); continue; }
-    s.fromEp = false; if (window.TUWWorld) TUWWorld.save(k, TUWBuild.snapshot(k));   // what your walker built while you watched is kept
+    s.fromEp = false;   // what your walker built while you watched stays for you this visit; only work you do is saved
   }
   for (let k = Math.max(0, w.pos.seg.k - 3); k <= w.pos.seg.k + 3; k++) { physChunk(k); syncDeck(k, 0, TUWBuild.deckExtent(bridge(k))); }
   const c = new PhysCharacter(phys, { x: w.pos.x, y: w.pos.y, height: wh, facing: w.facing });
