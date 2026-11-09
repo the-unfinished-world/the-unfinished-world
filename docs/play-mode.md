@@ -41,7 +41,12 @@ you walk past its sides (`PhysShapes.crosses`, `PhysShapes.tops`); a ledge's roc
 only collides in its front band (`PhysShapes.clip`), since below that it is painted behind the ledges further down.
 
 Starting play: any movement key (arrows / WASD / Space) takes the walker right where it is, with the text still on the
-left; the "walk the gorge yourself" link opens the full-screen version. Esc or Leave hands the walk back.
+left. Esc or Leave hands the walk back. (Full-screen play, `enterPlay(true)`, exists but has no button at present.)
+
+Bridges build as you go: each bridge keeps a built stretch along its length. In play, your approach grows it from the
+end you come from (slightly faster than a run, a short lead ahead), its pieces fly in as the stretch reaches them, and
+its deck collider covers only the built stretch: step off the built end and you fall. What the stroller had built
+before you took over stays built.
 
 The scene supplies shapes through one adapter (`sceneShapes(kFrom, kTo)` in `index.html`): ledge outlines, rock
 pinnacles, the gorge walls and the bridge decks. Painting and physics read the same geometry functions.

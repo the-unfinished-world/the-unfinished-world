@@ -21,8 +21,6 @@ canvas.scene{position:fixed;inset:0;width:100%;height:100%;z-index:2}
 .copy a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--ink)}
 .join{display:inline-block;margin:0 0 1.8em;padding:.3em .95em .36em;border:1px solid var(--ink);border-radius:0;color:var(--ink);text-decoration:none;font:inherit;background:none;cursor:pointer}
 .join:hover{background:var(--ink);color:var(--paper)}
-.playbtn{display:block;margin:-.6em auto 1.6em;border:0;background:none;font:inherit;font-style:italic;color:var(--ink);opacity:.7;cursor:pointer;border-bottom:1px solid transparent}
-.playbtn:hover{opacity:1;border-bottom-color:var(--ink)}
 .copy,.veil,.sun{transition:opacity .6s ease}
 body.playing{overflow:hidden}
 body.playing .copy,body.playing .veil{opacity:0;pointer-events:none}
@@ -93,7 +91,6 @@ img.pic.photo{filter:grayscale(1) contrast(1.05);mix-blend-mode:multiply}
 <main class="copy">
   <h1 class="title">The Unfinished World</h1>
   <a class="join" href="#join" data-join>Join the Collective</a>
-  <button class="playbtn" id="playBtn" type="button">or walk the gorge yourself</button>
   <div id="about">
   <p>A collective of <em class="k">interdisciplinary thinkers and builders</em> questioning the boundaries of what is possible.</p>
   <div class="space"></div>
@@ -265,6 +262,44 @@ function lockTime(Bk, u) { const sgm = route.find(s => s.kind === 'bridge' && s.
 // pinnacles under that bridge (solid). Gorge walls come in vertical bands. Built lazily as the camera moves.
 const phys = window.PhysWorld ? new PhysWorld({ cell: 64 }) : null;
 const LEDGE_SOLID = 2 * STEP - 200;   // depth of the solid band under each ledge top (the next ledge on that side is 2*STEP down)
+// ---- bridges build as you go: each bridge's built stretch [lo, hi] along its length; its deck collider covers only
+// that stretch. The stroller builds them on its timeline; in play mode your approach drives them (from either end).
+const BUILD = new Map(), BUILD_RATE = 330, BUILD_LEAD = 90;   // units per second (a little faster than a run), lead ahead
+function syncDeck(k, lo, hi) {   // the deck collider for the built stretch (plus the landing once it reaches the top)
+  if (!phys) return; const Bk = bridge(k), g = 'deck' + k, key = Math.round(lo) + ':' + Math.round(hi);
+  if (phys.has(g) && phys.groups.get(g).key === key) return;
+  phys.removeGroup(g); if (hi - lo < 4) { phys.groups.set(g, Object.assign([], { key })); return; }
+  const pts = []; for (let s = lo; s < hi; s += 10) { const p = Bk.at(s); pts.push([p.x, p.y]); } const e = Bk.at(hi); pts.push([e.x, e.y]);
+  if (hi >= Bk.len - .5) { const B = ledge(k + 1); pts.push([B.landing[0], B.landing[1]]); }
+  phys.add(PhysShapes.platform(pts, { material: Bk.type === 'rope' ? 'rope' : 'wood', tag: 'bridge' + k, tolerance: .8 }), g);
+  phys.groups.get(g).key = key;
+}
+function buildInit(T, dist) {   // entering play: keep what the stroller has built, the rest starts unbuilt
+  BUILD.clear();
+  for (const sg of route) if (sg.kind === 'bridge') { const hi = Math.max(0, Math.min(sg.len, dist - sg.s0 + LEAD)); BUILD.set(sg.k, { lo: 0, hi, trig: new Map(), init: true }); }
+}
+function buildState(k) { let b = BUILD.get(k); if (!b) BUILD.set(k, b = { lo: 0, hi: 0, trig: new Map() }); return b; }
+function buildUpdate(dt, c) {   // play: grow the bridges near you toward where you are (plus a lead), from the end you came from
+  const kp = Math.round(-c.y / STEP);
+  for (let k = Math.max(0, kp - 2); k <= kp + 1; k++) {
+    const Bk = bridge(k), b = buildState(k), len = Bk.len; extendRoute(k + 2);
+    let best = 1e9, sp = 0; for (let s = 0; s <= len; s += 6) { const p = Bk.at(s), d = Math.hypot(p.x - c.x, p.y - c.y); if (d < best) { best = d; sp = s; } }
+    if (best > 130) continue;   // too far from this bridge to build it
+    const empty = b.hi - b.lo < 1;
+    if (empty) { const start = sp < len / 2 ? 0 : len; if (Math.abs(sp - start) > 60) continue; b.lo = b.hi = start; }   // only from an end
+    b.hi = Math.min(len, Math.max(b.hi, Math.min(b.hi + BUILD_RATE * dt, sp + BUILD_LEAD)));
+    b.lo = Math.max(0, Math.min(b.lo, Math.max(b.lo - BUILD_RATE * dt, sp - BUILD_LEAD)));
+  }
+}
+// when a bridge piece starts flying in: the stroller's timeline, or (play) the moment the built stretch reaches it
+function slotStart(Bk, sl, T) {
+  if (!PLAY) return lockTime(Bk, sl.u) - sl.dur;
+  const b = BUILD.get(Bk.k); if (!b || b.hi - b.lo < 1) return null;
+  let t = b.trig.get(sl); if (t != null) return t;
+  const s = Math.max(0, Math.min(1, sl.u)) * Bk.len, on = sl.u <= 0 || (s >= b.lo - 2 && s <= b.hi + 2) || (sl.u >= 1 && b.hi >= Bk.len - .5);
+  if (!on) return null;
+  t = b.init && s <= b.hi - 30 ? -1e9 : T; b.trig.set(sl, t); return t;   // already built when play began: no fly-in
+}
 // the walkway of bridge k as a line (optionally trimmed at both ends, where it meets the ledges)
 function deckLine(k, trim) { const Bk = bridge(k), t = trim || 0, out = []; for (let s = t; s <= Bk.len - t; s += 10) { const p = Bk.at(Math.min(s, Bk.len - t)); out.push([p.x, p.y]); } return out; }
 function physChunk(k) {
@@ -272,8 +307,6 @@ function physChunk(k) {
   const g = 'k' + k, L = ledge(k), Bk = bridge(k);
   // a ledge's rock mass reaches far down, but below its top band it is painted behind the ledges further down (they are
   // drawn over it); only the front band collides, so you walk in front of the cliff below and land on the next ledge
-  const deck = deckLine(k), end = Bk.at(Bk.len), B = ledge(k + 1);
-  phys.add(PhysShapes.platform(deck.concat([[end.x, end.y], [B.landing[0], B.landing[1]]]), { material: bridge(k).type === 'rope' ? 'rope' : 'wood', tag: 'bridge' + k, tolerance: .8 }), g);
   // solids: a bridge passes in front of anything its walkway runs through (that solid is painted behind it), so such a
   // solid keeps only its top, as a one-way surface you can land on (drop from the deck, jump up), and you walk past its
   // sides; the pier pinnacles are the usual case
@@ -386,7 +419,8 @@ const KEYS = new Set(), PLAYKEYS = { ArrowLeft: 'l', a: 'l', A: 'l', ArrowRight:
 function enterPlay(full) {
   if (PLAY || !phys || !window.PhysCharacter || !window.__walker) return;
   const w = window.__walker, body = (window.tuwCharacter && TUWBodies.byId(window.tuwCharacter)) || w.body || TUWBodies.archetypes[0], wh = WALKER_H * (body.height || 1);
-  for (let k = Math.max(0, w.pos.seg.k - 3); k <= w.pos.seg.k + 3; k++) physChunk(k);
+  buildInit(performance.now(), distAt(((performance.now() - t0) / 1000)));
+  for (let k = Math.max(0, w.pos.seg.k - 3); k <= w.pos.seg.k + 3; k++) { physChunk(k); const b = BUILD.get(k); syncDeck(k, b ? b.lo : 0, b ? b.hi : 0); }
   const c = new PhysCharacter(phys, { x: w.pos.x, y: w.pos.y, height: wh, facing: w.facing });
   c.grounded = true;
   PLAY = { c, body, wh, face: c.facing, flipAt: -9, flipFrom: c.facing, landAt: -9, phase: 0, lastX: c.x, lastT: null };
@@ -395,12 +429,12 @@ function enterPlay(full) {
   else document.body.classList.add('controlling');   // arrow keys: walk right where you are, text stays
 }
 function exitPlay() { if (!PLAY) return; PLAY = null; KEYS.clear(); document.body.classList.remove('playing', 'controlling'); }
-document.getElementById('playBtn').addEventListener('click', () => { if (PLAY) exitPlay(); enterPlay(true); });
+// (full-screen play, enterPlay(true), has no button at the moment: movement keys start play in place)
 document.getElementById('playExit').addEventListener('click', exitPlay);
 addEventListener('keydown', e => {
   const k = PLAYKEYS[e.key];
   if (!PLAY) {   // a movement key takes the walker, unless typing or a dialog is open
-    const t = e.target, typing = t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(t.tagName)) && t.id !== 'playBtn';
+    const t = e.target, typing = t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(t.tagName));
     if (!k || e.metaKey || e.ctrlKey || e.altKey || typing || document.querySelector('dialog[open]')) return;
     enterPlay(false);
   }
@@ -415,6 +449,8 @@ function drawPlayer(T) {
   const P = PLAY, c = P.c, J = TUWRig.jump, TN = PhysCharacter.TUNE;
   let acc = P.lastT == null ? 0 : Math.max(0, Math.min(.1, T - P.lastT)); P.lastT = T;
   const inp = { x: (KEYS.has('r') ? 1 : 0) - (KEYS.has('l') ? 1 : 0), jump: KEYS.has('j'), down: KEYS.has('dn') };
+  buildUpdate(acc, c);   // bridges near you build toward you before you step on them
+  for (let k = Math.round(-c.y / STEP) - 2; k <= Math.round(-c.y / STEP) + 1; k++) if (k >= 0) { const b = BUILD.get(k); syncDeck(k, b ? b.lo : 0, b ? b.hi : 0); }
   while (acc > 1e-6) { const h = Math.min(1 / 120, acc); c.step(h, inp); acc -= h; if (c.events.includes('land')) P.landAt = T; }
   // fell below the bottom of the gorge: back onto the lowest ledge
   if (c.y > ledge(0).yTop + 420) { const L0 = ledge(0); c.x = L0.landing[0] - L0.dir * 40; c.y = L0.landing[1] - 30; c.vx = c.vy = 0; c.grounded = false; P.spawnAt = T; }   // the mist gives you back
@@ -470,10 +506,10 @@ function frame(now) {
   for (let k = kLo; k <= kHi; k++) {
     const Bk = bridge(k); extendRoute(k + 2);
     for (const sl of Bk.slots) {
-      const lt = lockTime(Bk, sl.u), tStart = lt - sl.dur; if (!PLAY && T < tStart) continue;
-      const p = PLAY ? 1 : Math.min(1, (T - tStart) / sl.dur); let x = sl.x, y = sl.y, rot = sl.rot, al = sl.a, sc = 1;
+      const tStart = slotStart(Bk, sl, T); if (tStart == null || T < tStart) continue;
+      const p = Math.min(1, (T - tStart) / sl.dur); let x = sl.x, y = sl.y, rot = sl.rot, al = sl.a, sc = 1;
       if (p < 1) { const e = easeOut(p), over = Math.sin(p * Math.PI) * .035; x = bez(sl.sx, sl.mx, sl.x, e); y = bez(sl.sy, sl.my, sl.y, e); rot = sl.rot + sl.rot0 * (1 - e) + over; al *= lerp(.15, 1, p);
-        if (Math.abs(x - pos.x) < 90 && y > pos.y - WALKER_H - 70 && y < pos.y + 30) continue; }
+        const wp = PLAY ? PLAY.c : pos; if (Math.abs(x - wp.x) < 90 && y > wp.y - WALKER_H - 70 && y < wp.y + 30) continue; }
       if (sl.front && p >= 1) { frontPieces.push([sl, x, y, rot, al]); continue; }   // near side: drawn after the walker
       Bridges.place(ctx, sl, x, y, rot, al);
     }
@@ -536,7 +572,7 @@ function frame(now) {
   { const wp = PLAY ? { x: PLAY.c.x, y: PLAY.c.y } : pos, m = ctx.getTransform(), a = m.transformPoint(new DOMPoint(wp.x - WALKER_H * .4, wp.y - WALKER_H * 1.05)), b = m.transformPoint(new DOMPoint(wp.x + WALKER_H * .4, wp.y + WALKER_H * .05));
     window.walkerBox = { x0: Math.min(a.x, b.x) / dpr, y0: Math.min(a.y, b.y) / dpr, x1: Math.max(a.x, b.x) / dpr, y1: Math.max(a.y, b.y) / dpr }; }
   for (const [sl, x, y, rot, al] of frontPieces) Bridges.place(ctx, sl, x, y, rot, al);
-  if (phys) { for (let k = kLo; k <= kHi; k++) physChunk(k); if (PLAY) { const kp = Math.round(-PLAY.c.y / STEP); for (let k = kp - 3; k <= kp + 3; k++) physChunk(k); }
+  if (phys) { for (let k = kLo; k <= kHi; k++) { physChunk(k); if (PLAY) { const b = BUILD.get(k); syncDeck(k, b ? b.lo : 0, b ? b.hi : 0); } else syncDeck(k, 0, bridge(k).len); } if (PLAY) { const kp = Math.round(-PLAY.c.y / STEP); for (let k = kp - 3; k <= kp + 3; k++) physChunk(k); }
     if (DEBUG_COLLIDERS) drawColliders(ctx); }
   ctx.restore();
 
