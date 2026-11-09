@@ -293,12 +293,18 @@
       if (t === 'rope') {   // the coil hangs from the holding hand (left) and grows as it is coiled (pose.toolSize 0..1);
         // the working hand (right) pulls rope from the supply and lays it on: a strand runs from that hand to the coil
         const g = Math.max(0, Math.min(1, pose.toolSize == null ? .6 : pose.toolSize)), turns = 2 + Math.round(g * 6), R0 = .025 + .1 * g;
-        const hold = P('handL'), work = P('handR'), cen = add(hold, [.005, -R0 * .8], 1), C = S(cen);
+        // pose.coilHand 0..1 moves the coil from the near hand to the far one (to throw from it); pose.strand names the hand
+        // the strand runs to ('R' coiling, 'L' holding the grapnel, null once thrown); pose.pile false: no supply at the feet
+        const ch = pose.coilHand || 0, hold = lerp2(P('handL'), P('handR'), ch), sH = pose.strand === undefined ? 'R' : pose.strand;
+        const work = sH ? P('hand' + sH) : null, cen = add(hold, [.005, -R0 * .8], 1), C = S(cen);
         ctx.lineWidth = .01 * h;
         for (let i = 0; i < turns; i++) { const r = .025 + (R0 - .025 + .025) * (i + 1) / turns; ctx.beginPath(); ctx.ellipse(C[0] + i * .002 * h * sx, C[1] + (R0 - r) * .3 * h, r * .75 * h * Math.abs(sx) * fc, r * h, .15 * Math.sign(sx), 0, Math.PI * 2); ctx.stroke(); }
         // the strand: from the top of the coil to the working hand, sagging more when the hand is close (slack)
+        if (!work) return;
         const top = add(cen, [0, R0 * .9], 1), d = len(sub(work, top)), sag = Math.max(0, .09 - d * .35), mid = add(lerp2(top, work, .5), [0, -sag], 1), A0 = S(top), M = S(mid), W0 = S(work);
         ctx.beginPath(); ctx.moveTo(A0[0], A0[1]); ctx.quadraticCurveTo(M[0], M[1], W0[0], W0[1]); ctx.stroke();
+        if (pose.grapnel) { ctx.beginPath(); ctx.arc(W0[0], W0[1], .016 * h, 0, Math.PI * 2); ctx.fill(); }
+        if (pose.pile === false) return;
         // and from the working hand the rest of the rope runs down to the pile at the feet
         const pile = [Math.max(P('toeL')[0], P('toeR')[0]) + .06, .01], Pm = S(add(lerp2(work, pile, .5), [.04, -.03], 1)), Pp = S(pile);
         ctx.beginPath(); ctx.moveTo(W0[0], W0[1]); ctx.quadraticCurveTo(Pm[0], Pm[1], Pp[0], Pp[1]); ctx.stroke();

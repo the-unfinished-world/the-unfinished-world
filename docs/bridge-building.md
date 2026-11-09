@@ -15,13 +15,13 @@ walking out over what you have already built. You lay a deck by walking out on i
 
 ## Rope suspension (as in Himalayan and Andean rope bridges)
 
-1. Coil the rope. The coil in your hands grows as you coil. (62_21 coiling)
-2. Drive the near anchor stakes and lash the anchors. (hammer 62_10; anchors, stays appear)
-3. Throw a weighted line with a grapnel across the gorge until it bites on the far lip; it may take a few throws.
+1. Drive the near anchor stakes and lash the anchors. (hammer 62_10; anchors, stays appear)
+2. Raise the near towers. (push 81_05; towers, stays)
+3. Coil the line just before throwing it. The coil in your hands grows as you coil. (62_21 coiling)
+4. Throw the weighted line with a grapnel across the gorge until it bites on the far lip; it may take a few throws.
+   The full coil passes to the far hand and the line pays out from it; the near hand throws the grapnel.
    (throw 141_11; a line arcs across and catches; far anchors appear where it bites)
-4. Haul the two main cables across on the line and pull them taut. (drag 81_08 / pull; cables appear sagging, then
-   tighten)
-5. Raise the near towers and tie the cables over them. (push 81_05, then tying ~79_20; towers, caps)
+5. Haul the two main cables across on the line and pull them taut. (drag 81_08 / pull; cables appear)
 6. Walk out along the cables laying and lashing planks, tying hangers and side ropes as you go; you advance with the
    deck. (lift 26_10 + lashing/hammer 62_10; deck, planks, hangers, edge ropes appear near to far, with you on them)
 7. On the far ledge, raise the far towers. (push 81_05)
@@ -66,6 +66,10 @@ walking out over what you have already built. You lay a deck by walking out on i
 Not a smooth slide: build, build, build, then step up. Each work cycle (lift a plank, hammer it in) lays about a body
 length of deck, which appears with the hammer strokes; then the builder stands and walks up to the new edge, and the
 work waits while they walk. Any change of place during a build (onto the deck, over to the far ledge) is a walk.
+
+Between motions (one step to the next, setting down, stepping up, picking up) the body eases from where it was into
+the new motion over about a third of a second; within a cycle (place, then hammer; one throw, then the next) the end
+of one motion eases into the start of the next.
 
 ## How it is built
 

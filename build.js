@@ -23,10 +23,11 @@
   const DECK = [{ n: 'place', speed: 2.6 }, { n: 'hammer', speed: 1.25 }];   // set a plank down on the edge, nail it
   const SCRIPTS = {
     rope: [
-      { id: 'coil', act: 'coil', dur: 4, at: 'spot', grow: true },
       { id: 'anchors', act: 'hammer', dur: 3, at: 'spot', reveal: sl => near(sl) && (sl.kind === 'anchor' || sl.kind === 'cap' || (sl.kind === 'rope' && sl.s == null)) },
       { id: 'towers', act: 'push', dur: 3, at: 'spot', reveal: sl => near(sl) && (sl.kind === 'tower' || sl.kind === 'stay') },
-      { id: 'throw', act: 'throw', reps: 3, dur: 4.5, at: 'spot', line: true, atEnd: true, reveal: sl => far(sl) && (sl.kind === 'anchor' || sl.kind === 'cap' || (sl.kind === 'rope' && sl.s == null)) },
+      // coil the line, then throw it from the coil: the full coil passes to the far hand, the near hand throws the grapnel
+      { id: 'coil', act: 'coil', dur: 4, at: 'spot', grow: true },
+      { id: 'throw', act: 'throw', reps: 3, dur: 4.5, at: 'spot', line: true, atEnd: true, holdCoil: true, reveal: sl => far(sl) && (sl.kind === 'anchor' || sl.kind === 'cap' || (sl.kind === 'rope' && sl.s == null)) },
       { id: 'cables', act: 'haul', dur: 4, at: 'spot', line: true, reveal: sl => sl.kind === 'cable' },
       { id: 'deck', act: DECK, perCycle: 64, at: 'deck', reveal: sl => /^(deck|plank|hanger)$/.test(sl.kind) || (sl.kind === 'rope' && sl.s != null) },
       { id: 'far', act: 'push', dur: 3, at: 'far', reveal: sl => far(sl) },
@@ -80,24 +81,45 @@
     prep(Bk); let ext = 0; for (const sl of Bk.slots) if ((sl.kind === 'deck') && s.t.has(sl)) ext = Math.max(ext, sl._o + 3); return Math.min(Bk.len, ext);
   }
   function step(Bk) { const s = state(Bk.k), sc = prep(Bk).sc; return s.done ? null : sc[s.step]; }
-  // the builder's pose: the step's action(s) played in turn (one-shots repeated reps times across the step)
+  // the builder's pose: the step's action(s) played in turn (one-shots repeated reps times across the step). Where one
+  // motion hands over to the next (place -> hammer, one throw -> the next) the last moment eases into the next start
+  const REL = .42, EASE = .22;   // the grapnel leaves the hand a little before mid-throw; hand-over ease (s)
+  function ease(rig, p, q, left) {
+    if (left >= EASE) return p;
+    const w = 1 - left / EASE, s = w * w * (3 - 2 * w), b = rig.blend(p, q, s);
+    return Object.assign(b, { tool: s < .5 ? p.tool : q.tool });
+  }
   function pose(Bk, t) {
     const st = step(Bk), rig = R(); if (!st || !rig) return null;
     const acts = actsOf(st), A = rig.actions;
     let p;
-    if (st.reps) { const d = A[acts[0].n].dur, per = st.dur / st.reps; p = rig.action(acts[0].n, Math.min(d - .01, (t % per) * d / per)); }
+    if (st.reps) {
+      const d = A[acts[0].n].dur, per = st.dur / st.reps, n = Math.floor(t / per), tc = Math.min(d - .01, (t % per) * d / per);
+      p = rig.action(acts[0].n, tc);
+      if (n < st.reps - 1) p = ease(rig, p, rig.action(acts[0].n, 0), (d - tc) * per / d);
+    }
     else if (acts.length === 1) p = rig.action(acts[0].n, t * acts[0].speed);
-    else { const cyc = cycleDur(st); let u = t % cyc, i = 0; while (u > A[acts[i].n].dur / acts[i].speed && i < acts.length - 1) { u -= A[acts[i].n].dur / acts[i].speed; i++; } p = rig.action(acts[i].n, u * acts[i].speed); }
+    else {
+      const cyc = cycleDur(st), dOf = j => A[acts[j].n].dur / acts[j].speed; let u = t % cyc, i = 0;
+      while (u > dOf(i) && i < acts.length - 1) { u -= dOf(i); i++; }
+      const j = (i + 1) % acts.length;
+      p = ease(rig, rig.action(acts[i].n, u * acts[i].speed), rig.action(acts[j].n, 0), dOf(i) - u);
+    }
     if (st.grow) p = Object.assign({}, p, { toolSize: state(Bk.k).frac });
+    if (st.holdCoil) {   // the coil just made: it moves over to the far hand; until each throw, the line runs from it to the grapnel in the near hand
+      const per = st.dur / st.reps, u = (t % per) / per, m = Math.min(1, t / .5);
+      p = Object.assign({}, p, { tool: 'rope', toolSize: 1, coilHand: m * m * (3 - 2 * m), strand: u < REL ? 'L' : null, pile: false, grapnel: u < REL });
+    }
     if (!p.tool) p = Object.assign({}, p, { tool: 'empty' });   // working hands: held things stay set down
     return p;
   }
   // the grapnel line: thrown three times (short, shorter of the far lip, then it catches), then lying across until
   // the cables are in
-  function line(Bk, t, hand, target) {
+  // hands: { L, R } in scene coordinates; a thrown line pays out from the coil (far hand), a hauled one runs from the near hand
+  function line(Bk, t, hands, target) {
     const st = step(Bk); if (!st || !st.line) return null;
-    if (st.id === 'cables') return { from: hand, to: target, sag: .12, done: true };
-    const per = st.dur / st.reps, n = Math.floor(t / per), u = (t % per) / per, rel = .42;   // release a little before mid-throw
+    if (st.id === 'cables') return { from: hands.L, to: target, sag: .12, done: true };
+    const hand = st.holdCoil ? hands.R : hands.L, per = st.dur / st.reps, n = Math.floor(t / per), u = (t % per) / per, rel = REL;
     if (u < rel) return null;
     const v = (u - rel) / (1 - rel), reach = n >= st.reps - 1 ? 1 : n === 0 ? .45 : .75;
     return { from: hand, to: target, reach, v, caught: n >= st.reps - 1 };
