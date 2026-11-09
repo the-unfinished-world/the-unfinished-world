@@ -23,6 +23,13 @@ TURN_START_PHASE = .5           # to the left-foot strike just after it (the led
 TURN_FPS = 30
 RUN = ('35_17', 0.2, 1.2)      # a jog (subject 35, the level-walk subject): one stride, looped like the walks
 JUMP = ('16_05', 0.55, 1.95)   # a two-footed forward jump: crouch, take-off, flight, landing, recovery
+# building the bridges: (trial, from, to, loop?, mirror?, tool). Mirror swaps left and right so the working hand is the
+# near one (seen from the side); rest angles come from the subject standing at the start of the recording.
+ACTIONS = {
+    'hammer': ('62_10', 5.52, 6.93, True, True, 'hammer'),    # four strokes, bent over at deck height (subject 62)
+    'lift':   ('26_10', 0.30, 4.90, False, False, 'plank'),  # bend, lift a plank, stand (subject 26)
+    'coil':   ('62_21', 4.53, 6.45, True, False, 'rope'),    # one turn of coiling a rope, for the rope bridges
+}
 N = 40                        # samples per stride
 # standard skeleton: our joint name -> CMU bone whose END is that joint (L = near side, seen walking to the right)
 JOINTS = {'pelvis': 'root', 'hipL': 'lhipjoint', 'kneeL': 'lfemur', 'ankleL': 'ltibia', 'ballL': 'lfoot', 'toeL': 'ltoes',
@@ -212,6 +219,33 @@ def jump_clip(folder, trial, t0, t1):
     print('jump', trial, 'dur', out['dur'], 'takeoff', out['takeoff'], 'apex', out['apex'], 'land', out['land'], file=sys.stderr)
     return out
 
+def action_clip(folder, trial, t0, t1, loop, mirror, tool):
+    F = load(folder, trial); H = height(F); i0, i1 = int(round(t0 * 60)), int(round(t1 * 60))
+    def facing(f):
+        l, r = f['hipL'], f['hipR']; d = [l[0] - r[0], l[2] - r[2]]; fx, fz = -d[1], d[0]; n = math.hypot(fx, fz) or 1; return [fx / n, fz / n]
+    fs = [facing(F[i]) for i in range(i0, i1 + 1)]; fx = sum(v[0] for v in fs); fz = sum(v[1] for v in fs); n = math.hypot(fx, fz); R = [fx / n, fz / n]
+    g0 = min(min(F[i]['ankleL'][1], F[i]['ankleR'][1]) for i in range(i0, i1 + 1))
+    swap = lambda q: (q[:-1] + ('R' if q[-1] == 'L' else 'L')) if mirror and q[-1] in 'LR' and q not in ('pelvis',) else q
+    def side(f):
+        px = f['pelvis'][0] * R[0] + f['pelvis'][2] * R[1]
+        return {q: [((f[swap(q)][0] * R[0] + f[swap(q)][2] * R[1]) - px) / H, (f[swap(q)][1] - g0) / H] for q in JOINTS}
+    N = int(round((t1 - t0) * TURN_FPS)); raw = []
+    for k in range(N + 1):
+        t = i0 + (i1 - i0) * k / N; i = int(t); w = t - i; j = min(i + 1, len(F) - 1)
+        raw.append(side({q: [F[i][q][c] * (1 - w) + F[j][q][c] * w for c in range(3)] for q in JOINTS}))
+    if loop:   # close the seam like the strides
+        for k in range(N + 1):
+            for q in JOINTS: raw[k][q] = [raw[k][q][c] - (raw[N][q][c] - raw[0][q][c]) * k / N for c in range(2)]
+        raw = raw[:-1]
+    st = side(F[0]); g1 = min(st['ankleL'][1], st['ankleR'][1])   # the subject standing at the start: rest angles
+    def a(p, q): return math.atan2(q[1] - p[1], q[0] - p[0])
+    rest = {'footL': round(a(st['ankleL'], st['ballL']), 4), 'footR': round(a(st['ankleR'], st['ballR']), 4),
+            'toeL': round(wrap(a(st['ballL'], st['toeL']) - a(st['ankleL'], st['ballL'])), 4), 'toeR': round(wrap(a(st['ballR'], st['toeR']) - a(st['ankleR'], st['ballR'])), 4),
+            'head': round(a(st['skull'], st['crown']), 4)}
+    print('action', trial, 'frames', len(raw), 'loop' if loop else 'once', file=sys.stderr)
+    return {'fps': TURN_FPS, 'loop': loop, 'tool': tool, 'dur': round(len(raw) / TURN_FPS if loop else (t1 - t0), 3), 'rest': rest, 'source': 'CMU mocap ' + trial,
+            'frames': [[round(v, 4) for q in JOINTS for v in fr[q]] for fr in raw]}
+
 def rests(c, ground):
     # each subject's own "flat foot" and toe angles (median over mid-stance), and the head's average angle
     F = c['frames']; n = len(F); r = {}
@@ -293,6 +327,7 @@ if __name__ == '__main__':
     r['frames'] = [[v for j in JOINTS for v in fr[j]] for fr in r['frames']]; data['run'] = r
     print('run', RUN[0], 'stride', r['D'], 'dur', r['dur'], file=sys.stderr)
     data['jump'] = jump_clip(folder, *JUMP)
+    data['actions'] = {name: action_clip(folder, *spec) for name, spec in ACTIONS.items()}
     # compact: frames as flat arrays in joint order
     for c in data['clips'].values(): c['frames'] = [[v for j in data['joints'] for v in fr[j]] for fr in c['frames']]
     data['stand'] = [v for j in data['joints'] for v in data['stand'][j]]

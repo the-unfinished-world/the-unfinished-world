@@ -125,5 +125,20 @@
     };
   }
   const jump = JC ? { pose: jumpPose, dur: JC.dur, takeoff: JC.takeoff, apex: JC.apex, land: JC.land } : null;
-  window.TUWRig = { pose, stride, clips, joints: J, turn, blend, jump, run: RUN };
+  // ---- actions (gait-clips.js 'actions'): building the bridges. action(name, tc) -> a pose (facing +x, on the ground)
+  // carrying pose.tool ('hammer', 'plank', 'rope'), which the body draws in the near hand. Loops wrap, one-shots hold.
+  const AC = C.actions || {};
+  function action(name, tc) {
+    const c = AC[name]; if (!c) return null;
+    const n = c.frames.length, f0 = tc * c.fps, f = c.loop ? ((f0 % n) + n) % n : Math.max(0, Math.min(n - 1.001, f0)), i = Math.floor(f), w = f - i;
+    const A2 = c.frames[i], B2 = c.frames[c.loop ? (i + 1) % n : Math.min(n - 1, i + 1)], arr = new Array(2 * NJ);
+    for (let k = 0; k < 2 * NJ; k++) arr[k] = A2[k] + (B2[k] - A2[k]) * w;
+    for (let j = 0; j < NJ; j++) arr[2 * j + 1] += ANKLE;
+    const P = n2 => at(arr, n2), a = clipAngles(arr, c.rest, 0), torsoUp = ang(mid(P('hipL'), P('hipR')), P('neck'));
+    return { P, slope: 0, D: [0, 0], ankle: ANKLE, tool: c.tool === 'plank' && tc < c.pickup ? null : c.tool, angles: { head: Math.PI / 2 + a.head + (torsoUp - Math.PI / 2) * .35, torsoUp, footL: a.footL, footR: a.footR, toeL: a.footL + a.toeL, toeR: a.footR + a.toeR } };
+  }
+  // a carried plank only appears once it has been picked up (the moment the hands are lowest)
+  for (const k in AC) { const c = AC[k]; if (c.tool !== 'plank') continue; let lo = 1e9; c.pickup = 0; c.frames.forEach((f, i) => { const y = f[2 * IDX.handL + 1] + f[2 * IDX.handR + 1]; if (y < lo) { lo = y; c.pickup = i / c.fps; } }); }
+  const actions = {}; for (const k in AC) actions[k] = { dur: AC[k].dur, loop: AC[k].loop, tool: AC[k].tool, pickup: AC[k].pickup };
+  window.TUWRig = { pose, stride, clips, joints: J, turn, blend, jump, run: RUN, action, actions };
 })();

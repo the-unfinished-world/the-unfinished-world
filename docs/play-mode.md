@@ -54,6 +54,22 @@ pinnacles, the gorge walls and the bridge decks. Painting and physics read the s
 Units are scene units (y down, as the canvas draws). Colliders are generated lazily per ledge index `k`, like the
 painting.
 
+## Building the bridges (decided 2026-11-08)
+
+You have to build a bridge to walk it. Each ledge has a building spot at the foot of the next bridge; standing there
+and pressing E starts a building animation (recorded motion: lifting and setting planks, hammering, coiling rope for
+rope bridges) and the bridge grows with the work, its deck walkable as it is laid. Press once and the character keeps
+working; walking away pauses it and it resumes where it stopped. Nothing builds without a builder.
+
+- Shared and lasting: built bridges are saved (Supabase) and stay for every visitor; the gorge is built up together.
+  Several people can build and walk at once.
+- The stroller on the landing page also stops on each ledge and builds the next bridge with the same animation (its
+  work is not saved).
+
+Steps: (B1) building animations from CMU construction recordings (subject 62 hammering, sawing, coiling rope; lifting),
+shown on the bodies for a look; (B2) the build spot, E, progress and the growing bridge, locally, with the stroller
+building too; (B3) shared, saved bridge state in Supabase; (B4) other people's walkers.
+
 ## Phases (each ends with a look from Nikhil)
 
 1. Colliders from the scene's shapes, with a debug overlay (`?debug=colliders`) drawing them over the painting.

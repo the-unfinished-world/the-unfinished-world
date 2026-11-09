@@ -147,7 +147,9 @@
     const P = n => cache[n] || (cache[n] = UPPER.has(n) ? rotAbout(add(hip0, sub(pose.P(n), hip0), body.upper), hip0, -lean) : pose.P(n));
     const torsoUp = angles.torsoUp - lean, headUp = angles.head - lean * .5 - body.nod;
     // a held staff takes over the near arm: hand forward at waist height, small swing kept from the recording
-    if (body.hold) {
+    // while working (the pose carries a tool) things held in the hands are set down; worn things (sword, axe, pack) stay
+    const busy = !!pose.tool;
+    if (body.hold && !busy) {
       const sh = P('shoulderL'), a = len(sub(P('elbowL'), sh)), b = len(sub(P('handL'), P('elbowL'))), rec = P('handL');
       const target = add(add(sh, [body.hold.at[0] * fc, body.hold.at[1]], 1), sub(rec, add(sh, [0, -(a + b) * .9], 1)), .1), d = Math.min(len(sub(target, sh)), a + b - .005);
       const th = Math.atan2(target[1] - sh[1], target[0] - sh[0]), A = Math.acos(Math.max(-1, Math.min(1, (a * a + d * d - b * b) / (2 * a * d))));
@@ -257,6 +259,7 @@
     }
     function props(stage) {
       for (const p of body.props) {
+        if (busy && /^(staff|crook|javelin|laurel|scroll|lantern|shield|spear)$/.test(p)) continue;
         if (p === 'sword' && stage === 0) { const g = TT([.035, .04]); limb(g, TT([-.16, -.27]), .022, .018); limb(g, TT([.08, .13]), .024, .024); const G = S(g); ctx.beginPath(); ctx.arc(G[0], G[1], .03 * h / 2, 0, Math.PI * 2); ctx.fill(); }   // scabbard back and down, hilt forward, guard
         if (p === 'axe' && stage === 0) { const top = TT([.52, -.14]); limb(top, TT([.16, .09]), .022, .022); shape([[-.015, .02], [-.05, .04], [-.095, .065], [-.08, -.005], [-.09, -.08], [-.05, -.03], [-.015, -.015]].map(q => add(top, q, 1)), .2); }   // over the shoulder, bearded crescent blade
         if (p === 'staff' && stage === 1) {   // near hand grips it; the foot rests on the deck ahead
@@ -282,7 +285,14 @@
       }
     }
     if (o.linesOnly) { if (body.garment) folds(body.garment); ctx.restore(); return; }
-    props(0); arm('R'); leg('R'); if (body.garment) garment(body.garment); torso(); head(); leg('L'); arm('L'); props(1);
+    // tools from the pose (building): hammer in the near hand, a plank carried between the hands, a coil of rope
+    function tool(t) {
+      if (t === 'hammer') { const wr = P('wristL'), hd = P('handL'), d = sub(hd, wr), L = len(d) || 1, u = [d[0] / L, d[1] / L], tip = add(hd, u, .11), n = [-u[1], u[0]];
+        limb(wr, tip, .014, .014); limb(add(tip, n, -.035), add(tip, n, .03), .028, .024); }
+      if (t === 'plank') { const a = P('handL'), b = P('handR'), m = lerp2(a, b, .5), d = sub(b, a), L = len(d) || 1, u = L > .03 ? [d[0] / L, d[1] / L] : [1, 0]; limb(add(m, u, -.22), add(m, u, .22), .028, .028); }
+      if (t === 'rope') { const m = lerp2(P('handL'), P('handR'), .5), C = S(add(m, [.02, -.02], 1)); ctx.lineWidth = .016 * h; ctx.beginPath(); ctx.ellipse(C[0], C[1], .05 * h * Math.abs(sx) * fc, .07 * h, 0, 0, Math.PI * 2); ctx.stroke(); }
+    }
+    props(0); arm('R'); leg('R'); if (body.garment) garment(body.garment); torso(); head(); leg('L'); arm('L'); props(1); if (pose.tool) tool(pose.tool);
     ctx.restore();
   };
 })();
