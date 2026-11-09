@@ -290,7 +290,11 @@
       if (t === 'hammer') { const wr = P('wristL'), hd = P('handL'), d = sub(hd, wr), L = len(d) || 1, u = [d[0] / L, d[1] / L], tip = add(hd, u, .11), n = [-u[1], u[0]];
         limb(wr, tip, .014, .014); limb(add(tip, n, -.035), add(tip, n, .03), .028, .024); }
       if (t === 'plank') { const a = P('handL'), b = P('handR'), m = lerp2(a, b, .5), d = sub(b, a), L = len(d) || 1, u = L > .03 ? [d[0] / L, d[1] / L] : [1, 0]; limb(add(m, u, -.22), add(m, u, .22), .028, .028); }
-      if (t === 'rope') { const m = lerp2(P('handL'), P('handR'), .5), C = S(add(m, [.02, -.02], 1)); ctx.lineWidth = .016 * h; ctx.beginPath(); ctx.ellipse(C[0], C[1], .05 * h * Math.abs(sx) * fc, .07 * h, 0, 0, Math.PI * 2); ctx.stroke(); }
+      if (t === 'rope') {   // a coil that grows as it is coiled (pose.toolSize 0..1): more turns, each a little larger
+        const m = lerp2(P('handL'), P('handR'), .5), C = S(add(m, [.02, -.03], 1)), g = Math.max(0, Math.min(1, pose.toolSize == null ? .6 : pose.toolSize)), turns = 2 + Math.round(g * 6);
+        ctx.lineWidth = .01 * h; for (let i = 0; i < turns; i++) { const r = .025 + (.025 + .075 * g) * (i + 1) / turns; ctx.beginPath(); ctx.ellipse(C[0] + i * .002 * h * sx, C[1] + r * .25 * h, r * .75 * h * Math.abs(sx) * fc, r * h, .15 * Math.sign(sx), 0, Math.PI * 2); ctx.stroke(); }
+        const tail = S(add(m, [.03, -.12 - .1 * g], 1)); ctx.beginPath(); ctx.moveTo(C[0], C[1] + .03 * h); ctx.quadraticCurveTo(C[0] + .06 * h * sx, (C[1] + tail[1]) / 2 + .04 * h, tail[0], tail[1]); ctx.stroke();   // the free end hanging down
+      }
     }
     props(0); arm('R'); leg('R'); if (body.garment) garment(body.garment); torso(); head(); leg('L'); arm('L'); props(1); if (pose.tool) tool(pose.tool);
     ctx.restore();
