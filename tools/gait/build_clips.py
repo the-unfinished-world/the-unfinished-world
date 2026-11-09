@@ -29,6 +29,9 @@ ACTIONS = {
     'hammer': ('62_10', 5.52, 6.93, True, True, 'hammer'),    # four strokes, bent over at deck height (subject 62)
     'lift':   ('26_10', 0.30, 4.90, False, False, 'plank'),  # bend, lift a plank, stand (subject 26)
     'coil':   ('62_21', 4.53, 6.45, True, False, 'rope'),    # one turn of coiling a rope, for the rope bridges
+    'throw':  ('141_11', 3.70, 5.20, False, True, None),     # an overhand throw (subject 141), the grapnel line
+    'push':   ('81_05', 5.23, 7.53, True, False, None),      # bent low, driving forward (subject 81): raising, launching
+    'haul':   ('81_08', 4.98, 7.72, True, False, None),      # bent, pulling backward (subject 81): hauling the cables
 }
 N = 40                        # samples per stride
 # standard skeleton: our joint name -> CMU bone whose END is that joint (L = near side, seen walking to the right)
@@ -188,7 +191,7 @@ def smooth_swing(frames, sd, D):
         hp = f[H]; d = min(math.dist(hp, na), l1 + l2 - 1e-4); th = math.atan2(na[1] - hp[1], na[0] - hp[0])
         c = max(-1, min(1, (l1 * l1 + d * d - l2 * l2) / (2 * l1 * d))); al = math.acos(c)
         k1 = [hp[0] + l1 * math.cos(th + al), hp[1] + l1 * math.sin(th + al)]; k2 = [hp[0] + l1 * math.cos(th - al), hp[1] + l1 * math.sin(th - al)]
-        f[K] = [round(v, 4) for v in (k1 if k1[0] > k2[0] else k2)]          # knees bend forward
+        f[K] = [round(v, 3) for v in (k1 if k1[0] > k2[0] else k2)]          # knees bend forward
         f[A] = na; f[B] = [round(na[0] + dB[0], 4), round(na[1] + dB[1], 4)]; f[T] = [round(na[0] + dT[0], 4), round(na[1] + dT[1], 4)]
     print('  smoothed', sd, 'swing over', L, 'frames, clearance', round(clear, 3), file=sys.stderr)
 
@@ -211,7 +214,7 @@ def jump_clip(folder, trial, t0, t1):
         lift = max(0, f['pelvis'][1] - base)   # the body's rise above standing: removed (the physics sets the height),
                                                # so the crouch stays and in flight the legs tuck up under the body
         px = (f['pelvis'][0] - a[0]) * R[0] + (f['pelvis'][2] - a[2]) * R[2]
-        out['frames'].append([round(v, 4) for q in JOINTS for v in ((((f[q][0] - a[0]) * R[0] + (f[q][2] - a[2]) * R[2]) - px) / H, (f[q][1] - g0 - lift) / H)])
+        out['frames'].append([round(v, 3) for q in JOINTS for v in ((((f[q][0] - a[0]) * R[0] + (f[q][2] - a[2]) * R[2]) - px) / H, (f[q][1] - g0 - lift) / H)])
         out['lift'].append(round(lift / H, 4))
     out['dur'] = round(t1 - t0, 3); out['takeoff'] = round(tk / 60, 3); out['land'] = round(ld / 60, 3)
     apex = max(range(tk, ld), key=lambda q: feet[q]); out['apex'] = round(apex / 60, 3)
@@ -244,7 +247,7 @@ def action_clip(folder, trial, t0, t1, loop, mirror, tool):
             'head': round(a(st['skull'], st['crown']), 4)}
     print('action', trial, 'frames', len(raw), 'loop' if loop else 'once', file=sys.stderr)
     return {'fps': TURN_FPS, 'loop': loop, 'tool': tool, 'dur': round(len(raw) / TURN_FPS if loop else (t1 - t0), 3), 'rest': rest, 'source': 'CMU mocap ' + trial,
-            'frames': [[round(v, 4) for q in JOINTS for v in fr[q]] for fr in raw]}
+            'frames': [[round(v, 3) for q in JOINTS for v in fr[q]] for fr in raw]}
 
 def rests(c, ground):
     # each subject's own "flat foot" and toe angles (median over mid-stance), and the head's average angle
@@ -293,10 +296,10 @@ def turn_clip(folder, trial, t0, t1):
         prev = yaw
         px = (f['pelvis'][0] - b[0]) * R[0] + (f['pelvis'][2] - b[2]) * R[2]
         out['root'].append(round(px / H, 4)); out['yaw'].append(round(yaw, 4))
-        out['frames'].append([round(v, 4) for q in JOINTS for v in ((((f[q][0] - b[0]) * R[0] + (f[q][2] - b[2]) * R[2]) - px) / H, (f[q][1] - g0) / H)])
+        out['frames'].append([round(v, 3) for q in JOINTS for v in ((((f[q][0] - b[0]) * R[0] + (f[q][2] - b[2]) * R[2]) - px) / H, (f[q][1] - g0) / H)])
         sub3 = lambda p, q: [p[0] - q[0], p[1] - q[1], p[2] - q[2]]
         hipm = [(f['hipL'][c] + f['hipR'][c]) / 2 for c in range(3)]
-        out['pitch'].append([round(v, 4) for v in (
+        out['pitch'].append([round(v, 3) for v in (
             pitch_along(sub3(f['ballL'], f['ankleL']), fv), pitch_along(sub3(f['ballR'], f['ankleR']), fv),
             pitch_along(sub3(f['toeL'], f['ballL']), fv), pitch_along(sub3(f['toeR'], f['ballR']), fv),
             math.atan2(sub3(f['neck'], hipm)[1], (sub3(f['neck'], hipm)[0] * fv[0] + sub3(f['neck'], hipm)[2] * fv[2])),
