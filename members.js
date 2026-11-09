@@ -23,7 +23,11 @@
     const c = document.createElement('canvas'), r = Math.min(devicePixelRatio || 1, 2);
     c.width = w * r; c.height = h * r; c.style.width = w + 'px'; c.style.height = h + 'px'; c.className = 'pic';
     const g = c.getContext('2d'); g.scale(r, r); g.fillStyle = '#f1ede4'; g.fillRect(0, 0, w, h);
-    if (window.drawWalkerBrush) drawWalkerBrush(g, { x: w / 2, y: h - 3, h: h * .9, phase: 0, idle: 1, yaw: 1, slope: 0, alpha: 1, color: '#1c1a17', variant: variant === 'female' ? 'female' : 'male' });
+    const v = variant === 'female' ? 'female' : 'male', body = window.TUWBodies && (TUWBodies.byId(variant) || TUWBodies.byId(v));
+    if (window.drawWalkerBrush && window.TUWRig && body) {   // the same rig and bodies as the walker in the scene, standing
+      const pose = TUWRig.pose({ idle: 1 });
+      drawWalkerBrush(g, { x: w / 2, y: h - 3, h: h * .9, phase: 0, alpha: 1, color: '#1c1a17', draw: (c, o) => drawBody(c, body, pose, { x: o.x, y: o.y, h: o.h, dir: 1, color: o.color }) });
+    } else if (window.drawWalkerBrush) drawWalkerBrush(g, { x: w / 2, y: h - 3, h: h * .9, phase: 0, idle: 1, yaw: 1, slope: 0, alpha: 1, color: '#1c1a17', variant: v });
     return c;
   }
   function picture(p, w, h) {
@@ -33,13 +37,23 @@
     }
     return figureCanvas(p.figure, w, h);
   }
+  // the character picker lists every body in bodies.js (archetypes first)
+  if (window.TUWBodies) {
+    F.figure.replaceChildren();
+    for (const [label, set] of [['Archetypes', TUWBodies.archetypes], ['Everyday', TUWBodies.variants]]) {
+      const g = document.createElement('optgroup'); g.label = label;
+      for (const b of set) { const op = document.createElement('option'); op.value = b.id; op.textContent = b.label; g.appendChild(op); }
+      F.figure.appendChild(g);
+    }
+  }
+  const charId = id => (window.TUWBodies && TUWBodies.byId(id) ? TUWBodies.byId(id).id : 'walker');
+  const setCharacter = id => { window.tuwCharacter = id || null; };
   function refreshPreview() {
     const kind = F.avatar_kind.value;
     preview.replaceChildren(picture({ avatar_kind: kind, figure: F.figure.value, avatar_url: avatarUrl }, 56, 64));
-    F.figure.disabled = kind !== 'figure';
     usePhoto.hidden = !providerPhoto;
   }
-  form.addEventListener('change', e => { if (e.target.name === 'avatar_kind' || e.target.name === 'figure') refreshPreview(); });
+  form.addEventListener('change', e => { if (e.target.name === 'avatar_kind' || e.target.name === 'figure') refreshPreview(); if (e.target.name === 'figure') setCharacter(F.figure.value); });
   usePhoto.addEventListener('click', () => { avatarUrl = providerPhoto; F.avatar_kind.value = 'photo'; refreshPreview(); });
   fileIn.addEventListener('change', async () => {
     const f = fileIn.files && fileIn.files[0]; if (!f || !session) return;
@@ -60,7 +74,7 @@
 
   // ---------- signed-out / signed-in states ----------
   function showSignedOut() {
-    session = null; title.textContent = 'Join the Collective';
+    session = null; setCharacter(null); title.textContent = 'Join the Collective';
     signin.hidden = false; form.hidden = true; say('');
     document.querySelectorAll('.join[data-join]').forEach(b => b.textContent = 'Join the Collective');
   }
@@ -73,7 +87,8 @@
     const p = data && data[0];
     F.name.value = (p && p.name) || m.full_name || m.name || m.user_name || '';
     F.work.value = (p && p.work) || ''; F.interests.value = (p && p.interests) || ''; F.bio.value = (p && p.bio) || '';
-    F.figure.value = (p && p.figure) || 'male'; F.avatar_kind.value = (p && p.avatar_kind) || 'figure';
+    F.figure.value = charId(p && p.figure); F.avatar_kind.value = (p && p.avatar_kind) || 'figure';
+    setCharacter(p ? F.figure.value : null);   // a member walks the bridges as their chosen character
     avatarUrl = (p && p.avatar_url) || null; F.listed.checked = !!(p && p.listed);
     title.textContent = p ? 'Your profile' : 'Join the Collective';
     $('saveBtn').textContent = p ? 'Save' : 'Join';
@@ -86,10 +101,16 @@
     const btn = $('saveBtn'); btn.disabled = true; say('Saving…');
     const args = { p_name: F.name.value.trim(), p_work: F.work.value.trim() || null, p_bio: F.bio.value.trim() || null, p_interests: F.interests.value.trim() || null,
       p_avatar_kind: F.avatar_kind.value, p_figure: F.figure.value, p_avatar_url: F.avatar_kind.value === 'photo' ? avatarUrl : null, p_listed: F.listed.checked };
-    const { data, error } = await sb.rpc('save_profile', args);
+    let { data, error } = await sb.rpc('save_profile', args);
+    // until supabase/003_characters.sql is applied the database only accepts 'male' / 'female': save the plain walker
+    // of the same base instead, and keep the chosen character for this visit
+    if (error && error.code === '23514' && !['male', 'female'].includes(args.p_figure)) {
+      const b = window.TUWBodies && TUWBodies.byId(args.p_figure);
+      ({ data, error } = await sb.rpc('save_profile', Object.assign({}, args, { p_figure: b && b.base === 'female' ? 'female' : 'male' })));
+    }
     btn.disabled = false;
     if (error) { say(error.message && error.message.length < 120 ? error.message : 'Something went wrong. Please try again.', 'err'); return; }
-    say(data === 'joined' ? 'Welcome to the collective.' : 'Saved.', 'ok');
+    say(data === 'joined' ? 'Welcome to the collective.' : 'Saved.', 'ok'); setCharacter(F.figure.value);
     title.textContent = 'Your profile'; btn.textContent = 'Save';
     document.querySelectorAll('.join[data-join]').forEach(b => b.textContent = 'Your profile');
     if (!peopleBox.hidden) loadPeople();

@@ -3,7 +3,8 @@
 The site is static (GitHub Pages). Everything member-related goes from the browser to a free Supabase project:
 
 - Organization **The Unfinished World** (free plan), project **tuw-collective** (`pzzivuxhfpaiucbfqypw`, us-west-1).
-- SQL, in order: `schema.sql` (table), then `002_profiles.sql` (sign-in-only profiles, People list, photo bucket).
+- SQL, in order: `schema.sql` (table), then `002_profiles.sql` (sign-in-only profiles, People list, photo bucket),
+  then `003_characters.sql` (the profile `figure` holds a walker character id from `bodies.js`).
 - Front end: `members.js` plus the `<dialog id="joinDialog">` and `<div id="people">` in `index.html`.
   The key in `members.js` is the publishable key, which is meant to be public.
 
@@ -11,7 +12,9 @@ The site is static (GitHub Pages). Everything member-related goes from the brows
 
 - **Joining requires signing in with Google.** GitHub, email, phone and anonymous sign-in are switched off.
 - After signing in, people fill in name, what they do, interests, a few words about themselves, and a picture.
-  The picture is either an ink figure (man or woman) or a photo: their Google photo, or an upload.
+  They choose a walker character (any archetype or everyday walker in `bodies.js`); it is their picture when
+  they pick the ink figure, and the walker in the scene while they are signed in. The picture can instead be a photo:
+  their Google photo, or an upload.
   They can come back and edit any of it.
 - **"Show me on the People page"** is off by default. Only people who tick it appear, and emails are never shown.
 - **The People view** opens by clicking the walker in the scene (the cursor changes over it) or from `#people`.

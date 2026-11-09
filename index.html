@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>The Unfinished World</title>
-<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;1,400&family=IM+Fell+English&display=swap" rel="stylesheet">
 <style>
 :root{--paper:#f1ede4;--ink:#1c1a17}
 *{box-sizing:border-box;margin:0}
@@ -14,12 +14,11 @@ body::after{content:"";position:fixed;inset:0;pointer-events:none;opacity:.34;mi
  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.3 0 0 0 0 0.28 0 0 0 0 0.25 0 0 0 .18 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
 canvas.scene{position:fixed;inset:0;width:100%;height:100%;z-index:2}
 .veil{position:fixed;left:0;top:0;bottom:0;width:640px;z-index:3;pointer-events:none;background:linear-gradient(90deg,rgba(241,237,228,.92) 0%,rgba(241,237,228,.86) 55%,rgba(241,237,228,0) 100%)}
-.title{position:fixed;left:56px;top:38px;z-index:7;font-style:italic;font-size:25px}
-.band{position:fixed;left:0;top:0;width:640px;height:96px;z-index:6;pointer-events:none;background:linear-gradient(180deg,rgba(241,237,228,1) 0%,rgba(241,237,228,.95) 70%,rgba(241,237,228,0) 100%)}
-.copy{position:relative;z-index:5;max-width:420px;margin-left:56px;padding:98px 0 40vh}
+.title{font-family:"IM Fell English","EB Garamond",Georgia,serif;font-size:34px;font-weight:400;line-height:1.15;margin:0 0 1.1em}
+.copy{position:relative;z-index:5;max-width:420px;margin-left:56px;padding:40px 0 40vh;text-align:center}
 .copy p{margin:0 0 .55em}
 .copy a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--ink)}
-.join{display:inline-block;margin:0 0 1.15em;padding:.3em .95em .36em;border:1px solid var(--ink);border-radius:0;color:var(--ink);text-decoration:none;font:inherit;background:none;cursor:pointer}
+.join{display:inline-block;margin:0 0 1.8em;padding:.3em .95em .36em;border:1px solid var(--ink);border-radius:0;color:var(--ink);text-decoration:none;font:inherit;background:none;cursor:pointer}
 .join:hover{background:var(--ink);color:var(--paper)}
 dialog.joinbox{margin:auto;width:min(460px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;padding:30px 32px 26px;border:1px solid var(--ink);border-radius:0;background:var(--paper);color:var(--ink);font:inherit}
 dialog.joinbox::backdrop{background:rgba(241,237,228,.72);backdrop-filter:blur(2px)}
@@ -67,19 +66,18 @@ img.pic.photo{filter:grayscale(1) contrast(1.05);mix-blend-mode:multiply}
 .cue{position:fixed;left:56px;bottom:28px;z-index:7;opacity:.55;transition:opacity .4s}
 .cue.off{opacity:0}
 .fade{position:fixed;left:0;bottom:0;width:640px;height:140px;z-index:6;pointer-events:none;background:linear-gradient(180deg,rgba(241,237,228,0),rgba(241,237,228,.95))}
-@media (max-width:760px){.veil{width:100%;background:rgba(241,237,228,.8)}.copy{margin:0 24px;max-width:none}.title{left:24px}body{font-size:19px}}
+@media (max-width:760px){.veil{width:100%;background:rgba(241,237,228,.8)}.copy{margin:0 24px;max-width:none}.title{font-size:31px}body{font-size:19px}}
 </style>
 </head>
 <body>
-<div class="title">The Unfinished World</div>
 <canvas class="scene" id="c"></canvas>
 <div class="veil"></div>
-<div class="band"></div>
 <div class="fade"></div>
 
 <div id="dbg" hidden></div>
 
 <main class="copy">
+  <h1 class="title">The Unfinished World</h1>
   <a class="join" href="#join" data-join>Join the Collective</a>
   <div id="about">
   <p>A collective of <em class="k">interdisciplinary thinkers and builders</em> questioning the boundaries of what is possible.</p>
@@ -116,10 +114,10 @@ img.pic.photo{filter:grayscale(1) contrast(1.05);mix-blend-mode:multiply}
     <label>What you do<input name="work" maxlength="160" placeholder="e.g. neuroscientist, writes software, paints"></label>
     <label>Interests<input name="interests" maxlength="300"></label>
     <label>A few words about you<textarea name="bio" maxlength="2000" rows="3"></textarea></label>
+    <label>Your walker on the bridges<select name="figure" id="figurePick" aria-label="Your walker"><option value="walker">Walker</option><option value="walker-f">Walker (woman)</option></select></label>
     <div class="picrow"><span id="picPreview"></span>
       <div class="opts">
-        <label class="inline"><input type="radio" name="avatar_kind" value="figure" checked>Ink figure</label>
-        <select name="figure" aria-label="Figure"><option value="male">man</option><option value="female">woman</option></select><br>
+        <label class="inline"><input type="radio" name="avatar_kind" value="figure" checked>Your walker</label><br>
         <label class="inline"><input type="radio" name="avatar_kind" value="photo">Photo:</label>
         <button type="button" class="linkish" id="usePhoto" hidden>use my sign-in photo</button>
         <label class="linkish inline">upload<input type="file" id="picUpload" accept="image/jpeg,image/png,image/webp" hidden></label>
@@ -137,6 +135,9 @@ img.pic.photo{filter:grayscale(1) contrast(1.05);mix-blend-mode:multiply}
 <script src="walker7.js"></script>
 <script src="walker8.js"></script>
 <script src="brushfigure.js"></script>
+<script src="gait-clips.js"></script>
+<script src="rig.js"></script>
+<script src="bodies.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="members.js" defer></script>
 <script>
@@ -168,7 +169,7 @@ function cached(key, x0, y0, w, h, render) {
 const drawPiece = sl => Bridges.drawPiece(ctx, sl);
 
 // ---------- world --------------------------------------------------------------------
-const STEP = 215, GORGE_L = 800, GORGE_R = 1080, DECK_W = 110, WALKER_H = 100, SPEED = 38;
+const STEP = 215, GORGE_L = 800, GORGE_R = 1080, DECK_W = 110, WALKER_H = 68, SPEED = 38;
 const ledges = new Map(), bridges = new Map();
 function ledge(k) {
   if (ledges.has(k)) return ledges.get(k);
@@ -286,26 +287,36 @@ function drawMistBand(i) {
   cached(`mist_${i}`, x - w / 2 - 120, y - h / 2 - 120, w + 240, h + 240, o => mist(o, x, y, w, h, i * 3 + 2, { alpha: .94, blur: 6 }));
 }
 
+// ---------- walkers: one body per crossing, from the archetypes and everyday walkers in bodies.js ----------
+const PEOPLE = window.TUWBodies ? [...TUWBodies.archetypes, ...TUWBodies.variants] : [];
+// a signed-in member walks as the character they chose (members.js sets window.tuwCharacter); otherwise a random one
+const bodyFor = k => { const mine = window.tuwCharacter && window.TUWBodies && TUWBodies.byId(window.tuwCharacter); return mine || (PEOPLE.length ? PEOPLE[Math.floor(rng(k * 7919 + 3)() * PEOPLE.length)] : null); };
+const walkerH = k => { const b = bodyFor(k); return WALKER_H * (b ? b.height : 1); };
+// a person keeps their body for a whole crossing; the hand-over happens at the turn on each ledge
+const personK = pos => pos.seg.kind === 'ledge' && pos.t < pos.seg.turnAt ? pos.seg.k - 1 : pos.seg.k;
+const strideOf = slope => window.TUWRig ? TUWRig.stride(slope) : walker8Stride(slope);
+
 // ---------- main loop ----------------------------------------------------------------
 const t0 = performance.now() - 1000 * (parseFloat(new URLSearchParams(location.search).get('t')) || 0); const cam = { y: 0 }; let phase = 0, prevPos = null;
 function frame(now) {
   const T = (now - t0) / 1000, dist = distAt(T), pos = walkerAt(dist);
   const targetY = pos.y - 900 * .60 + 450; cam.y = prevPos ? lerp(cam.y, targetY, .05) : targetY;
   const altitude = -pos.y / STEP;
+  const camV = cam.y + scrollY / S;   // the view: walker follow plus page scroll, so the scenery moves with the text
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
   const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#e3ded3'); g.addColorStop(.5, PAPER); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   ctx.setTransform(dpr * S, 0, 0, dpr * S, OX * dpr, OY * dpr);
 
   // far peaks and middle cloud-head masses (parallax)
   for (const [par, seed, base, amp, alpha, freq, key] of [[.07, 3, 560, 300, .08, .0022, 'far1'], [.13, 9, 640, 260, .11, .0038, 'far2']]) {
-    const py = cam.y * par; ctx.save(); ctx.translate(0, 450 - cam.y * par - 450 + 0); drawFar(py - 450, par, seed, base, amp, alpha, freq, key); ctx.restore();
+    const py = camV * par; ctx.save(); ctx.translate(0, 450 - camV * par - 450 + 0); drawFar(py - 450, par, seed, base, amp, alpha, freq, key); ctx.restore();
   }
-  { const par = .3, py = cam.y * par; ctx.save(); ctx.translate(0, -py); drawMid(py - 450); ctx.restore(); }
+  { const par = .3, py = camV * par; ctx.save(); ctx.translate(0, -py); drawMid(py - 450); ctx.restore(); }
 
   // world
-  ctx.save(); ctx.translate(0, 450 - cam.y);
-  const kLo = Math.max(0, Math.floor(-(cam.y + 650) / STEP) - 1), kHi = Math.floor(-(cam.y - 800) / STEP) + 2;
-  const iLo = Math.floor((cam.y - 520) / WT), iHi = Math.floor((cam.y + 520) / WT);
+  ctx.save(); ctx.translate(0, 450 - camV);
+  const kLo = Math.max(0, Math.floor(-(camV + 650) / STEP) - 1), kHi = Math.floor(-(camV - 800) / STEP) + 2;
+  const iLo = Math.floor((camV - 520) / WT), iHi = Math.floor((camV + 520) / WT);
   const kw = pos.seg.k;
   for (let k = kHi; k >= kLo; k--) { const L = ledge(k); const above = (pos.y - L.yTop) / STEP, dk = Math.abs(k - kw);
     const depthA = dk <= 1 ? 1 : dk <= 3 ? .72 : .5;
@@ -318,35 +329,34 @@ function frame(now) {
       const p = Math.min(1, (T - tStart) / sl.dur); let x = sl.x, y = sl.y, rot = sl.rot, al = sl.a, sc = 1;
       if (p < 1) { const e = easeOut(p), over = Math.sin(p * Math.PI) * .035; x = bez(sl.sx, sl.mx, sl.x, e); y = bez(sl.sy, sl.my, sl.y, e); rot = sl.rot + sl.rot0 * (1 - e) + over; al *= lerp(.15, 1, p);
         if (Math.abs(x - pos.x) < 90 && y > pos.y - WALKER_H - 70 && y < pos.y + 30) continue; }
-      if (sl.front && p >= 1) frontPieces.push([sl, x, y, rot, al]);
+      if (sl.front && p >= 1) { frontPieces.push([sl, x, y, rot, al]); continue; }   // near side: drawn after the walker
       Bridges.place(ctx, sl, x, y, rot, al);
     }
   }
   const gapNow = turnGap(dist), stepScale = .55 + .45 * easeGap(gapNow);
-  if (prevPos) { const dx = Math.abs(pos.x - prevPos.x); phase += (dx / (walker8Stride(pos.slope) * stepScale * WALKER_H)) * Math.PI * 2; }
+  if (prevPos) { const dx = Math.abs(pos.x - prevPos.x); phase += (dx / (strideOf(pos.slope) * stepScale * walkerH(personK(pos)))) * Math.PI * 2; }
   // facing: through the ledge pivot the silhouette narrows (three-quarter view) instead of flipping in one frame
   let facing = pos.seg.kind === 'ledge' && pos.t < pos.seg.turnAt ? -pos.seg.dir : pos.seg.dir, xScale = 1;
   if (pos.seg.kind === 'ledge') { const tp = pos.seg.s0 + pos.seg.turnAt * pos.seg.len, W = 7, p = Math.max(0, Math.min(1, (dist - (tp - W)) / (2 * W)));
     if (p > 0 && p < 1) { facing = -pos.seg.dir; const c = Math.cos(p * Math.PI); xScale = Math.sign(c || 1) * Math.max(.6, Math.abs(c)); } }
   prevPos = pos;
-  drawWalkerBrush(ctx, { x: pos.x, y: pos.y, h: WALKER_H, phase, idle: 0, slope: pos.slope, stepScale, xScale, yaw: 1.25 * facing, alpha: 1, color: INK, variant: rng(pos.seg.k * 7919 + 3)() < .5 ? 'male' : 'female' });
+  // The walker stands between the rails: the far side was drawn behind; the whole near side is drawn after, in front.
+  // the walker: recorded motion (rig.js) on a body (bodies.js); each crossing gets its own person
+  const body = bodyFor(personK(pos)), wh = walkerH(personK(pos));
+  if (window.TUWRig && body) {
+    const pose = TUWRig.pose({ slope: pos.slope, phase, idle: (1 - stepScale) * 1.1 });
+    drawWalkerBrush(ctx, { x: pos.x, y: pos.y, h: wh, phase, alpha: 1, color: INK, draw: (c, o) => drawBody(c, body, pose, { x: o.x, y: o.y, h: o.h, dir: facing, xScale, color: o.color }) });
+  } else drawWalkerBrush(ctx, { x: pos.x, y: pos.y, h: WALKER_H, phase, idle: 0, slope: pos.slope, stepScale, xScale, yaw: 1.25 * facing, alpha: 1, color: INK, variant: rng(pos.seg.k * 7919 + 3)() < .5 ? 'male' : 'female' });
   { const m = ctx.getTransform(), a = m.transformPoint(new DOMPoint(pos.x - WALKER_H * .4, pos.y - WALKER_H * 1.05)), b = m.transformPoint(new DOMPoint(pos.x + WALKER_H * .4, pos.y + WALKER_H * .05));
     window.walkerBox = { x0: Math.min(a.x, b.x) / dpr, y0: Math.min(a.y, b.y) / dpr, x1: Math.max(a.x, b.x) / dpr, y1: Math.max(a.y, b.y) / dpr }; }
-  // near-side railing, posts, hangers and ropes pass in front of the walker
-  // near parts pass in front of the walker only below the knee (posts, deck edge); above that they stay behind the
-  // body, so a handrail never cuts the silhouette at the hip. A thin paper gap marks the overlap where they cross.
-  { const bx = pos.x - WALKER_H * .7, bw = WALKER_H * 1.4, knee = pos.y - WALKER_H * .25, top = pos.y - WALKER_H * 1.3;
-    ctx.save(); ctx.beginPath(); ctx.rect(-1e5, -1e5, 2e5, 2e5); ctx.rect(bx, top, bw, knee - top); ctx.clip('evenodd');
-    ctx.save(); ctx.beginPath(); ctx.rect(bx, knee, bw, WALKER_H * .4); ctx.clip(); for (const [sl, x, y, rot] of frontPieces) Bridges.halo(ctx, sl, x, y, rot, .8); ctx.restore();
-    for (const [sl, x, y, rot, al] of frontPieces) Bridges.place(ctx, sl, x, y, rot, al);
-    ctx.restore(); }
+  for (const [sl, x, y, rot, al] of frontPieces) Bridges.place(ctx, sl, x, y, rot, al);
   ctx.restore();
 
   // moon above everything, soft edge
-  ctx.setTransform(dpr * S, 0, 0, dpr * S, OX * dpr, OY * dpr); ctx.save(); ctx.filter = 'blur(3px)'; ctx.globalAlpha = .85; ctx.fillStyle = '#efc7c3'; ctx.beginPath(); ctx.arc(1180, 190, 60, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  ctx.setTransform(dpr * S, 0, 0, dpr * S, OX * dpr, OY * dpr); ctx.save(); ctx.filter = 'blur(3px)'; ctx.globalAlpha = .85; ctx.fillStyle = '#efc7c3'; ctx.beginPath(); ctx.arc(1180, 190 - (camV - cam.y) * .07, 60, 0, Math.PI * 2); ctx.fill(); ctx.restore();
   // mist below, screen space
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const wy = OY + (pos.y - cam.y + 450) * S;
+  const wy = OY + (pos.y - camV + 450) * S;
   const mg = ctx.createLinearGradient(0, wy + 120 * S, 0, H); mg.addColorStop(0, 'rgba(241,237,228,0)'); mg.addColorStop(1, 'rgba(241,237,228,.95)');
   ctx.fillStyle = mg; ctx.fillRect(0, 0, W, H);
   document.getElementById('dbg').textContent = `ledge ${pos.seg.k} · ${pos.seg.kind} · altitude ${altitude.toFixed(1)} · cache ${CACHE.size}`;

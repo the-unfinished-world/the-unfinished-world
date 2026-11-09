@@ -16,7 +16,7 @@ window.Bridges = (function () {
   // ---- sprites -------------------------------------------------------------------------------------
   const SPR = new Map(), SS = 3, PAD = 4;
   function sprite(sl) {
-    const w = Math.max(1, Math.round(sl.w * 2) / 2), hh = Math.max(1, Math.round(sl.h * 2) / 2), key = `${sl.kind}_${w}_${hh}_${sl.color}`;
+    const w = Math.max(1, Math.round(sl.w * 2) / 2), hh = Math.max(1, Math.round(sl.h * 2) / 2), key = `${sl.kind}_${w}_${hh}_${sl.color}${sl.front ? '_f' : ''}`;
     let s = SPR.get(key); if (s) return s;
     const c = document.createElement('canvas'); c.width = Math.ceil((w + 2 * PAD) * SS); c.height = Math.ceil((hh + 2 * PAD) * SS);
     const o = c.getContext('2d'); o.setTransform(SS, 0, 0, SS, PAD * SS, PAD * SS);
@@ -25,7 +25,10 @@ window.Bridges = (function () {
     if (line) {
       const along = w >= hh, L = along ? w : hh, T = along ? hh : w;
       const segs = Math.max(4, Math.floor(L / 4)); o.strokeStyle = sl.color; o.lineCap = 'round';
-      for (let i = 0; i < segs; i++) { const t0 = i / segs, t1 = (i + 1) / segs; o.lineWidth = T * lerp(.6, 1.4, vnoise(i * .9, 5)); o.globalAlpha = lerp(.6, 1, vnoise(i * .7 + 20, 6)); if (sl.kind === 'rail' && r() < .05) continue; o.beginPath(); if (along) { o.moveTo(w * t0, hh / 2 + (r() - .5) * .4); o.lineTo(w * t1, hh / 2 + (r() - .5) * .4); } else { o.moveTo(w / 2 + (r() - .5) * .4, hh * t0); o.lineTo(w / 2 + (r() - .5) * .4, hh * t1); } o.stroke(); }
+      // near-side lines (drawn in front of the walker) are solid and unbroken, like the truss's near chords,
+      // so they read clearly where they cross the figure; far-side lines keep the broken, faded brush
+      const solid = !!sl.front;
+      for (let i = 0; i < segs; i++) { const t0 = i / segs, t1 = (i + 1) / segs; o.lineWidth = T * (solid ? lerp(.9, 1.2, vnoise(i * .9, 5)) : lerp(.6, 1.4, vnoise(i * .9, 5))); o.globalAlpha = solid ? lerp(.9, 1, vnoise(i * .7 + 20, 6)) : lerp(.6, 1, vnoise(i * .7 + 20, 6)); if (!solid && sl.kind === 'rail' && r() < .05) continue; o.beginPath(); if (along) { o.moveTo(w * t0, hh / 2 + (r() - .5) * .4); o.lineTo(w * t1, hh / 2 + (r() - .5) * .4); } else { o.moveTo(w / 2 + (r() - .5) * .4, hh * t0); o.lineTo(w / 2 + (r() - .5) * .4, hh * t1); } o.stroke(); }
     } else if (sl.kind === 'stone') {
       o.fillStyle = sl.color; o.globalAlpha = .92; o.beginPath(); o.ellipse(w / 2, hh / 2, w / 2, hh / 2, 0, 0, Math.PI * 2); o.fill(); o.globalAlpha = .35; o.fillStyle = '#f1ede4'; o.beginPath(); o.ellipse(w * .4, hh * .35, w * .22, hh * .18, 0, 0, Math.PI * 2); o.fill();
     } else {
@@ -75,7 +78,7 @@ window.Bridges = (function () {
   function make(o) {
     const { P0, P2, type, seed, DECK_W, INK } = o, r = rng(seed), dir = Math.sign(P2.x - P0.x) || 1;
     const mid = { x: (P0.x + P2.x) / 2, y: (P0.y + P2.y) / 2 }, span = Math.hypot(P2.x - P0.x, P2.y - P0.y);
-    const DARK = '#2f2c28', TIMB = '#3a3733', DECK = '#8e897f', PLANK = '#56524b', PERP = .3, halfW = DECK_W * PERP * .5;
+    const DARK = '#2f2c28', TIMB = '#3a3733', NEAR = '#6a655d', DECK = '#8e897f', PLANK = '#56524b', PERP = .3, halfW = DECK_W * PERP * .5;
     const slots = [], pinnacles = [];
     const push = (sl) => { if (sl.u == null) sl.u = (sl.s == null ? 0 : sl.s / len) + r() * .012; const ang = -Math.PI * .55 + (r() - .5) * 1.2, dist = 60 + r() * 30; sl.sx = sl.still ? sl.x : sl.fromBelow ? sl.x : sl.x + Math.cos(ang) * dist * (r() < .5 ? -1 : 1); sl.sy = sl.still ? sl.y : sl.fromBelow ? sl.y + sl.h * .5 : sl.y + Math.abs(Math.sin(ang)) * dist; sl.mx = (sl.sx + sl.x) / 2 + (r() - .5) * 20; sl.my = Math.min(sl.sy, sl.y) - 12; sl.dur = .4 + r() * .2; sl.rot0 = sl.still ? 0 : (r() - .5) * .5; sl.a = sl.a || 1; slots.push(sl); };
     // deck boards across the walkway (sheared to DEPTH), optional cleats; s0/s1 limit the run; uOff shifts build time
@@ -89,7 +92,7 @@ window.Bridges = (function () {
       for (let s = 10; s < L - 4; s += 36) { const p = Cv.at(s), q = Cv.at(Math.min(L, s + 36));
         for (const side of [-1, 1]) { const front = side < 0, Pp = front ? nearPt(p) : farPt(p), Qp = front ? nearPt(q) : farPt(q);
           push({ s, kind: 'post', x: Pp.x, y: Pp.y - 24, w: 2.6, h: 48, rot: 0, color: INK, u: s / len + .012, front });
-          if (s + 36 <= L + 30) for (const lvl of levels) push(Object.assign(member({ x: Pp.x, y: Pp.y - lvl }, { x: Qp.x, y: Qp.y - lvl }, 'rail', 1.5, INK), { u: s / len + .02, a: .75, front })); } } };
+          if (s + 36 <= L + 30) for (const lvl of levels) push(Object.assign(member({ x: Pp.x, y: Pp.y - lvl }, { x: Qp.x, y: Qp.y - lvl }, 'rail', 1.5, INK), { u: s / len + .02, a: front ? 1 : .75, front })); } } };
     // the underside of the deck's near edge at path point p
     const underNear = (p, gap) => ({ x: p.x - DEPTH.x, y: p.y - DEPTH.y + (gap == null ? 3 : gap) });
     let P1, C, len;
@@ -197,6 +200,8 @@ window.Bridges = (function () {
     }
     if (o.landing) { const L = o.landing, n = Math.max(2, Math.round(Math.hypot(L.x - P2.x, L.y - P2.y) / 5)), ang = Math.atan2(L.y - P2.y, L.x - P2.x);
       for (let i = 0; i <= n; i++) { const t = i / n, x = lerp(P2.x, L.x, t), y = lerp(P2.y, L.y, t); push({ kind: 'deck', x, y, w: 5.6, h: 2 * DL, rot: ang, shear: DU, color: DECK, a: .9, order: .5, still: true, u: .97 + .03 * t }); if (r() > .1) push({ kind: 'plank', x, y, w: 2, h: 2 * DL, rot: ang, shear: DU, color: PLANK, u: .97 + .03 * t + .005 }); } }
+    // the near side is drawn over the walker: a lighter ink tone so it reads where it crosses the dark figure
+    for (const sl of slots) if (sl.front) sl.color = NEAR;
     slots.sort((a, b) => a.u - b.u);
     return { k: o.k, type, P0, P1, P2, len, at, slots, pinnacles };
   }

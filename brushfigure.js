@@ -21,7 +21,8 @@
     const b = buf.getContext('2d'); b.setTransform(1, 0, 0, 1, 0, 0); b.globalCompositeOperation = 'source-over'; b.filter = 'none'; b.globalAlpha = 1;
     b.fillStyle = '#fff'; b.fillRect(0, 0, W * S, H * S);
     b.setTransform(S, 0, 0, S, 0, 0);
-    (window.drawWalker8 && o.variant ? drawWalker8 : drawWalker7)(b, Object.assign({}, o, { x: ox, y: oy, color: '#000', alpha: 1 }));
+    // o.draw(ctx, o) draws the raw figure (e.g. a body on a rig pose); without it, the procedural walker
+    (o.draw || (window.drawWalker8 && o.variant ? drawWalker8 : drawWalker7))(b, Object.assign({}, o, { x: ox, y: oy, color: '#000', alpha: 1 }));
     // 2. merge joints: blur then hard contrast = smooth closed silhouette
     const m = mer.getContext('2d'); m.setTransform(1, 0, 0, 1, 0, 0); m.globalCompositeOperation = 'source-over'; m.globalAlpha = 1;
     m.fillStyle = '#fff'; m.fillRect(0, 0, W * S, H * S);
@@ -34,7 +35,7 @@
     const e = Math.min(.7, h * .005); const offs = [[0, 0, 1], [Math.cos(t) * e, Math.sin(t * 1.3) * e * .8, .45]];
     for (const [dx, dy, a] of offs) { c.globalAlpha = a; c.drawImage(mer, dx * S, dy * S); }
     c.filter = 'none'; c.globalAlpha = 1;
-    if (window.drawWalker8Lines && o.variant) { c.globalCompositeOperation = 'source-over'; c.save(); c.setTransform(S, 0, 0, S, 0, 0); drawWalker8Lines(c, Object.assign({}, o, { x: ox, y: oy, lineColor: '#fff' })); c.restore(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'multiply'; }
+    if (!o.draw && window.drawWalker8Lines && o.variant) { c.globalCompositeOperation = 'source-over'; c.save(); c.setTransform(S, 0, 0, S, 0, 0); drawWalker8Lines(c, Object.assign({}, o, { x: ox, y: oy, lineColor: '#fff' })); c.restore(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'multiply'; }
     // pooled ink low on the figure (feet and hem), lighter wash high (shoulders catch the light)
     c.globalCompositeOperation = 'screen';
     const g = c.createLinearGradient(0, (oy - h) * S, 0, oy * S); g.addColorStop(0, 'rgba(255,255,255,.07)'); g.addColorStop(.55, 'rgba(255,255,255,.03)'); g.addColorStop(1, 'rgba(255,255,255,0)');
