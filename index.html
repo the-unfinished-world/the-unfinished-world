@@ -21,6 +21,15 @@ canvas.scene{position:fixed;inset:0;width:100%;height:100%;z-index:2}
 .copy a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--ink)}
 .join{display:inline-block;margin:0 0 1.8em;padding:.3em .95em .36em;border:1px solid var(--ink);border-radius:0;color:var(--ink);text-decoration:none;font:inherit;background:none;cursor:pointer}
 .join:hover{background:var(--ink);color:var(--paper)}
+.playbtn{display:block;margin:-.6em auto 1.6em;border:0;background:none;font:inherit;font-style:italic;color:var(--ink);opacity:.7;cursor:pointer;border-bottom:1px solid transparent}
+.playbtn:hover{opacity:1;border-bottom-color:var(--ink)}
+.copy,.veil,.sun{transition:opacity .6s ease}
+body.playing{overflow:hidden}
+body.playing .copy,body.playing .veil{opacity:0;pointer-events:none}
+.hud,.playexit{position:fixed;z-index:6;opacity:0;pointer-events:none;transition:opacity .6s ease;font-size:15px;color:var(--ink)}
+.hud{left:24px;bottom:20px;font-style:italic;opacity:0}
+.playexit{right:20px;top:18px;border:1px solid var(--ink);background:var(--paper);font:inherit;padding:.2em .8em;cursor:pointer}
+body.playing .hud{opacity:.75}body.playing .playexit{opacity:1;pointer-events:auto}
 dialog.joinbox{margin:auto;width:min(460px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;padding:30px 32px 26px;border:1px solid var(--ink);border-radius:0;background:var(--paper);color:var(--ink);font:inherit}
 dialog.joinbox::backdrop{background:rgba(241,237,228,.72);backdrop-filter:blur(2px)}
 .joinbox h2{font:inherit;font-style:italic;margin:0 0 .7em}
@@ -78,9 +87,12 @@ img.pic.photo{filter:grayscale(1) contrast(1.05);mix-blend-mode:multiply}
 <div id="dbg" hidden></div>
 
 <div class="sun" aria-hidden="true"></div>
+<div class="hud" id="hud">← → or A D to move · Space, W or ↑ to jump · S or ↓ to drop through a bridge · Esc to leave</div>
+<button class="playexit" id="playExit" type="button">Leave</button>
 <main class="copy">
   <h1 class="title">The Unfinished World</h1>
   <a class="join" href="#join" data-join>Join the Collective</a>
+  <button class="playbtn" id="playBtn" type="button">or walk the gorge yourself</button>
   <div id="about">
   <p>A collective of <em class="k">interdisciplinary thinkers and builders</em> questioning the boundaries of what is possible.</p>
   <div class="space"></div>
@@ -141,6 +153,9 @@ img.pic.photo{filter:grayscale(1) contrast(1.05);mix-blend-mode:multiply}
 <script src="gait-clips.js"></script>
 <script src="rig.js"></script>
 <script src="bodies.js"></script>
+<script src="play/shapes.js"></script>
+<script src="play/world.js"></script>
+<script src="play/controller.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="members.js" defer></script>
 <script>
@@ -194,11 +209,16 @@ function bridge(k) {
   bridges.set(k, Bk); return Bk;
 }
 // rock pinnacles under pier bridges: a thin ink mass rising out of the mist, painted once
+// the outlines below are shared by the painting and by the physics (play/shapes.js turns them into colliders)
+const PIN_H = 250;
+function pinnaclePoly(pn) {
+  const H = PIN_H, r = rng(pn.seed), w0 = pn.w / 2, w1 = w0 + 20 + r() * 14;
+  return [[pn.x - w0, pn.yTop], [pn.x - w0 * .5, pn.yTop - 1], [pn.x, pn.yTop - 1], [pn.x + w0 * .5, pn.yTop - 1], [pn.x + w0, pn.yTop], [pn.x + w0 + 6, pn.yTop + 40], [pn.x + w1 * .8, pn.yTop + 150], [pn.x + w1, pn.yTop + H], [pn.x - w1, pn.yTop + H], [pn.x - w1 * .85, pn.yTop + 170], [pn.x - w0 - 8, pn.yTop + 50]];
+}
 function drawPinnacle(k, i, pn) {
-  const H = 250, x0 = pn.x - 90, y0 = pn.yTop - 20;
+  const H = PIN_H, x0 = pn.x - 90, y0 = pn.yTop - 20;
   cached(`pin${k}_${i}`, x0, y0, 180, H + 40, o => {
-    const r = rng(pn.seed), w0 = pn.w / 2, w1 = w0 + 20 + r() * 14;
-    const pts = [[pn.x - w0, pn.yTop], [pn.x - w0 * .5, pn.yTop - 1], [pn.x, pn.yTop - 1], [pn.x + w0 * .5, pn.yTop - 1], [pn.x + w0, pn.yTop], [pn.x + w0 + 6, pn.yTop + 40], [pn.x + w1 * .8, pn.yTop + 150], [pn.x + w1, pn.yTop + H], [pn.x - w1, pn.yTop + H], [pn.x - w1 * .85, pn.yTop + 170], [pn.x - w0 - 8, pn.yTop + 50]];
+    const w0 = pn.w / 2, pts = pinnaclePoly(pn);
     rock(o, pts, { seed: pn.seed, amp: 2.5, round: 2, base: .2, pool: .3, lip: .1, poolEdge: .14, cun: 50, cunLen: 40, cunAlpha: .18, lineWidth: 2.6, ridge: [[pn.x - w0, pn.yTop], [pn.x + w0, pn.yTop]] });
     o.fillStyle = '#2a2825'; o.globalAlpha = .85; o.fillRect(pn.x - w0 - 2, pn.yTop - 2, w0 * 2 + 4, 4); o.globalAlpha = 1;
     fadeBase(o, x0, y0, 180, H + 40, .42);
@@ -239,6 +259,37 @@ function distAt(T) { T = Math.max(0, T); extendTD(T + .1, 0); let lo = 0, hi = T
 function timeAt(dist) { const w = dist - 40; if (w <= 0) return w / SPEED; extendTD(0, w + 1); let lo = 0, hi = TD.d.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (TD.d[m] < w) lo = m; else hi = m; } return lerp(TD.t[lo], TD.t[hi], (w - TD.d[lo]) / ((TD.d[hi] - TD.d[lo]) || 1)); }
 function lockTime(Bk, u) { const sgm = route.find(s => s.kind === 'bridge' && s.k === Bk.k); return timeAt(sgm.s0 + u * Bk.len - LEAD); }
 
+// ---------- physics: colliders generated from the same shapes the painting uses --------------------------------
+// Each ledge index k contributes: its rock mass (solid), its bridge deck and landing (one-way platforms), the rock
+// pinnacles under that bridge (solid). Gorge walls come in vertical bands. Built lazily as the camera moves.
+const phys = window.PhysWorld ? new PhysWorld({ cell: 64 }) : null;
+const LEDGE_SOLID = 2 * STEP - 200;   // depth of the solid band under each ledge top (the next ledge on that side is 2*STEP down)
+function physChunk(k) {
+  if (!phys || k < 0 || phys.has('k' + k)) return;
+  const g = 'k' + k, L = ledge(k), Bk = bridge(k);
+  // a ledge's rock mass reaches far down, but below its top band it is painted behind the ledges further down (they are
+  // drawn over it); only the front band collides, so you walk in front of the cliff below and land on the next ledge
+  phys.add(PhysShapes.solid(PhysShapes.clip(L.poly, { y1: L.yTop + LEDGE_SOLID }), { material: 'rock', tag: 'ledge' + k }), g);
+  const deck = []; for (let s = 0; s <= Bk.len; s += 10) { const p = Bk.at(Math.min(s, Bk.len)); deck.push([p.x, p.y]); }
+  const end = Bk.at(Bk.len), B = ledge(k + 1); deck.push([end.x, end.y], [B.landing[0], B.landing[1]]);
+  phys.add(PhysShapes.platform(deck, { material: bridge(k).type === 'rope' ? 'rope' : 'wood', tag: 'bridge' + k, tolerance: .8 }), g);
+  Bk.pinnacles.forEach((pn, i) => phys.add(PhysShapes.solid(pinnaclePoly(pn), { material: 'rock', tag: `pin${k}_${i}` }), g));
+}
+// (the gorge walls in drawWall are not painted at present, so they get no colliders: only what is painted is solid)
+const DEBUG_COLLIDERS = /[?&]debug=colliders/.test(location.search);
+// the colliders built so far, in the neutral format (for reuse elsewhere): copy(JSON.stringify(exportColliders()))
+window.exportColliders = () => phys && PhysShapes.toJSON(phys.colliders(), { source: 'The Unfinished World gorge' });
+function drawColliders(c) {
+  const COL = { ground: '#1f8a70', wall: '#d9822b', ceiling: '#b0306b' };
+  c.save(); c.lineCap = 'round'; c.globalAlpha = .9;
+  for (const col of phys.colliders()) for (const e of col.edges) {
+    c.strokeStyle = e.oneWay ? '#2b6cd9' : COL[e.cls]; c.lineWidth = e.oneWay ? 2.5 : 2;
+    c.beginPath(); c.moveTo(e.a[0], e.a[1]); c.lineTo(e.b[0], e.b[1]); c.stroke();
+    const mx = (e.a[0] + e.b[0]) / 2, my = (e.a[1] + e.b[1]) / 2; c.lineWidth = 1; c.beginPath(); c.moveTo(mx, my); c.lineTo(mx + e.nx * 6, my + e.ny * 6); c.stroke();
+  }
+  c.restore();
+}
+
 // ---------- painted elements (cached) ------------------------------------------------
 function drawLedge(L) {
   const M = 40, xs = L.poly.map(p => p[0]), ys = L.poly.map(p => p[1]);
@@ -255,11 +306,15 @@ function drawLedge(L) {
   });
 }
 const WT = 600;
-function drawWall(side, i) {
-  const key = `wall${side}_${i}`; const yA = i * WT, yB = (i + 1) * WT, M = 40;
+function wallPoly(side, i) {
+  const yA = i * WT, yB = (i + 1) * WT, M = 40;
   const edge = side < 0 ? GORGE_L - 120 : GORGE_R + 120, outer = side < 0 ? edge - 420 : edge + 420;
   const inner = []; for (let y = yA - M; y <= yB + M; y += 12) inner.push([edge - side * (fbm(y * .0035 + (side < 0 ? 3 : 17), 40) * 120), y]);
-  const poly = [[outer, yA - M]].concat(inner, [[outer, yB + M]]);
+  return { poly: [[outer, yA - M]].concat(inner, [[outer, yB + M]]), inner, edge, outer };
+}
+function drawWall(side, i) {
+  const key = `wall${side}_${i}`; const yA = i * WT, M = 40;
+  const { poly, inner, edge, outer } = wallPoly(side, i);
   const x0 = Math.min(outer, ...inner.map(p => p[0])) - 10, x1 = Math.max(outer, ...inner.map(p => p[0])) + 30;
   cached(key, x0, yA, x1 - x0, WT, o => {
     o.save(); o.beginPath(); o.rect(x0, yA, x1 - x0, WT); o.clip();
@@ -314,13 +369,63 @@ const walkerH = k => { const b = bodyFor(k); return WALKER_H * (b ? b.height : 1
 const personK = pos => pos.seg.kind === 'ledge' && pos.t < pos.seg.turnAt ? pos.seg.k - 1 : pos.seg.k;
 const strideOf = slope => window.TUWRig ? TUWRig.stride(slope) : walker8Stride(slope);
 
+// ---------- play mode: you walk the gorge (play/controller.js on the colliders above) ---------------------------
+// Full screen: the text fades away, every bridge is built, the camera follows you. Esc or Leave hands the walk back.
+let PLAY = null;
+const KEYS = new Set(), PLAYKEYS = { ArrowLeft: 'l', a: 'l', A: 'l', ArrowRight: 'r', d: 'r', D: 'r', ArrowUp: 'j', w: 'j', W: 'j', ' ': 'j', ArrowDown: 'dn', s: 'dn', S: 'dn' };
+function enterPlay() {
+  if (PLAY || !phys || !window.PhysCharacter || !window.__walker) return;
+  const w = window.__walker, body = (window.tuwCharacter && TUWBodies.byId(window.tuwCharacter)) || w.body || TUWBodies.archetypes[0], wh = WALKER_H * (body.height || 1);
+  for (let k = Math.max(0, w.pos.seg.k - 3); k <= w.pos.seg.k + 3; k++) physChunk(k);
+  const c = new PhysCharacter(phys, { x: w.pos.x, y: w.pos.y, height: wh, facing: w.facing });
+  c.grounded = true;
+  PLAY = { c, body, wh, face: c.facing, flipAt: -9, flipFrom: c.facing, landAt: -9, phase: 0, lastX: c.x, lastT: null };
+  KEYS.clear(); window.scrollTo(0, 0); document.body.classList.add('playing'); document.getElementById('playExit').focus({ preventScroll: true });
+}
+function exitPlay() { if (!PLAY) return; PLAY = null; KEYS.clear(); document.body.classList.remove('playing'); }
+document.getElementById('playBtn').addEventListener('click', enterPlay);
+document.getElementById('playExit').addEventListener('click', exitPlay);
+addEventListener('keydown', e => { if (!PLAY) return; if (e.key === 'Escape') { exitPlay(); return; } const k = PLAYKEYS[e.key]; if (k) { KEYS.add(k); e.preventDefault(); } });
+addEventListener('keyup', e => { const k = PLAYKEYS[e.key]; if (k) KEYS.delete(k); });
+addEventListener('blur', () => KEYS.clear());
+const smooth01 = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
+function drawPlayer(T) {
+  const P = PLAY, c = P.c, J = TUWRig.jump, TN = PhysCharacter.TUNE;
+  let acc = P.lastT == null ? 0 : Math.max(0, Math.min(.1, T - P.lastT)); P.lastT = T;
+  const inp = { x: (KEYS.has('r') ? 1 : 0) - (KEYS.has('l') ? 1 : 0), jump: KEYS.has('j'), down: KEYS.has('dn') };
+  while (acc > 1e-6) { const h = Math.min(1 / 120, acc); c.step(h, inp); acc -= h; if (c.events.includes('land')) P.landAt = T; }
+  // fell below the bottom of the gorge: back onto the lowest ledge
+  if (c.y > ledge(0).yTop + 420) { const L0 = ledge(0); c.x = L0.landing[0] - L0.dir * 40; c.y = L0.landing[1] - 30; c.vx = c.vy = 0; c.grounded = false; P.spawnAt = T; }   // the mist gives you back
+  if (c.facing !== P.face) { P.flipFrom = P.face; P.face = c.facing; P.flipAt = T; }
+  const dx = Math.abs(c.x - P.lastX); P.lastX = c.x;
+  let pose;
+  if (c.grounded) {
+    const sp = Math.abs(c.vx) / P.wh, run = smooth01((sp - .9) / .9), idle = 1 - smooth01(sp / .35);
+    P.phase += dx / (TUWRig.stride(c.slope, run) * P.wh) * Math.PI * 2;
+    pose = TUWRig.pose({ slope: c.slope, phase: P.phase, run, idle });
+    const lt = T - P.landAt; if (lt >= 0 && lt < .22) pose = TUWRig.blend(J.pose(J.land + lt * .8, 0), pose, smooth01(lt / .22));   // absorb the landing
+  } else {
+    // in the air the recorded flight follows the vertical speed: rising runs take-off to apex, falling apex to landing
+    const v = c.vy / (TN.jumpVel * P.wh), tc = v < 0 ? J.apex + (J.takeoff - J.apex) * Math.min(1, -v) : J.apex + (J.land - .04 - J.apex) * Math.min(1, v * 1.4);
+    pose = J.pose(tc, 1);
+  }
+  // turning on the spot: a quick narrowing through three-quarters instead of a flip
+  const u = (T - P.flipAt) / .16; let dir = P.face;
+  if (u < 1) { pose = Object.assign({}, pose, { fc: Math.max(.15, Math.abs(Math.cos(Math.PI * u))) }); dir = u < .5 ? P.flipFrom : P.face; }
+  const wind = Math.max(-1.5, Math.min(1.5, (window.Weather ? Weather.wind(T).x * .7 : -.45)));
+  const fadeIn = P.spawnAt == null ? 1 : smooth01((T - P.spawnAt) / .7);   // reappear like ink soaking into paper
+  drawWalkerBrush(ctx, { x: c.x, y: c.y, h: P.wh, phase: P.phase, alpha: fadeIn, color: INK,
+    draw: (cc, o) => drawBody(cc, P.body, pose, { x: o.x, y: o.y, h: o.h, dir, color: o.color, wind, time: T }),
+    drawLines: (cc, o) => drawBodyLines(cc, P.body, pose, { x: o.x, y: o.y, h: o.h, dir, lineColor: o.lineColor, wind, time: T }) });
+}
+
 // ---------- main loop ----------------------------------------------------------------
 const t0 = performance.now() - 1000 * (parseFloat(new URLSearchParams(location.search).get('t')) || 0); const cam = { y: 0 }; let phase = 0, prevPos = null, prevT = null, lastTurn = false;
 function frame(now) {
   const T = (now - t0) / 1000, dist = distAt(T), pos = walkerAt(dist);
-  const targetY = pos.y - 900 * .60 + 450; cam.y = prevPos ? lerp(cam.y, targetY, .05) : targetY;
+  const focusY = PLAY ? PLAY.c.y : pos.y, targetY = focusY - 900 * .60 + 450; cam.y = prevPos ? lerp(cam.y, targetY, PLAY ? .1 : .05) : targetY;
   const altitude = -pos.y / STEP;
-  const camV = cam.y + scrollY / S;   // the view: walker follow plus page scroll, so the scenery moves with the text
+  const camV = cam.y + (PLAY ? 0 : scrollY / S);   // the view: walker follow plus page scroll, so the scenery moves with the text
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
   const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#e3ded3'); g.addColorStop(.5, PAPER); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   ctx.setTransform(dpr * S, 0, 0, dpr * S, OX * dpr, OY * dpr);
@@ -343,14 +448,15 @@ function frame(now) {
   for (let k = kLo; k <= kHi; k++) {
     const Bk = bridge(k); extendRoute(k + 2);
     for (const sl of Bk.slots) {
-      const lt = lockTime(Bk, sl.u), tStart = lt - sl.dur; if (T < tStart) continue;
-      const p = Math.min(1, (T - tStart) / sl.dur); let x = sl.x, y = sl.y, rot = sl.rot, al = sl.a, sc = 1;
+      const lt = lockTime(Bk, sl.u), tStart = lt - sl.dur; if (!PLAY && T < tStart) continue;
+      const p = PLAY ? 1 : Math.min(1, (T - tStart) / sl.dur); let x = sl.x, y = sl.y, rot = sl.rot, al = sl.a, sc = 1;
       if (p < 1) { const e = easeOut(p), over = Math.sin(p * Math.PI) * .035; x = bez(sl.sx, sl.mx, sl.x, e); y = bez(sl.sy, sl.my, sl.y, e); rot = sl.rot + sl.rot0 * (1 - e) + over; al *= lerp(.15, 1, p);
         if (Math.abs(x - pos.x) < 90 && y > pos.y - WALKER_H - 70 && y < pos.y + 30) continue; }
       if (sl.front && p >= 1) { frontPieces.push([sl, x, y, rot, al]); continue; }   // near side: drawn after the walker
       Bridges.place(ctx, sl, x, y, rot, al);
     }
   }
+  if (PLAY) { drawPlayer(T); prevT = T; prevPos = pos; } else {
   const gapNow = turnGap(dist), stepScale = .55 + .45 * easeGap(gapNow), dtF = prevT == null ? 0 : Math.max(0, Math.min(.1, T - prevT));
   // ---- the turn on each ledge: a recorded 180-degree step-turn (rig.js turn) played in real time around the moment
   // the walker reaches the turn point; on pause ledges it holds three-quarters toward us for the dwell ----
@@ -403,9 +509,13 @@ function frame(now) {
       drawPerson(bodyFor(kOld), walkerH(kOld), pose, dir, 1 - u); drawPerson(bodyFor(kNew), walkerH(kNew), pose, dir, u);
     } else { const k2 = lg && mid != null ? (u >= 1 ? kNew : kOld) : kNow, b2 = bodyFor(k2 == null || k2 < 0 ? kNow : k2) || body; drawPerson(b2, walkerH(k2 == null || k2 < 0 ? kNow : k2), pose, dir, 1); }
   } else drawWalkerBrush(ctx, { x: pos.x, y: pos.y, h: WALKER_H, phase, idle: 0, slope: pos.slope, stepScale, xScale: 1, yaw: 1.25 * facing, alpha: 1, color: INK, variant: rng(pos.seg.k * 7919 + 3)() < .5 ? 'male' : 'female' });
-  { const m = ctx.getTransform(), a = m.transformPoint(new DOMPoint(pos.x - WALKER_H * .4, pos.y - WALKER_H * 1.05)), b = m.transformPoint(new DOMPoint(pos.x + WALKER_H * .4, pos.y + WALKER_H * .05));
+  window.__walker = { pos, body: (window.TUWRig && body) || null, facing };
+  }
+  { const wp = PLAY ? { x: PLAY.c.x, y: PLAY.c.y } : pos, m = ctx.getTransform(), a = m.transformPoint(new DOMPoint(wp.x - WALKER_H * .4, wp.y - WALKER_H * 1.05)), b = m.transformPoint(new DOMPoint(wp.x + WALKER_H * .4, wp.y + WALKER_H * .05));
     window.walkerBox = { x0: Math.min(a.x, b.x) / dpr, y0: Math.min(a.y, b.y) / dpr, x1: Math.max(a.x, b.x) / dpr, y1: Math.max(a.y, b.y) / dpr }; }
   for (const [sl, x, y, rot, al] of frontPieces) Bridges.place(ctx, sl, x, y, rot, al);
+  if (phys) { for (let k = kLo; k <= kHi; k++) physChunk(k); if (PLAY) { const kp = Math.round(-PLAY.c.y / STEP); for (let k = kp - 3; k <= kp + 3; k++) physChunk(k); }
+    if (DEBUG_COLLIDERS) drawColliders(ctx); }
   ctx.restore();
 
   // mist below, screen space

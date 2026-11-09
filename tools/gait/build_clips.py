@@ -21,6 +21,8 @@ STAND = ('83_34', 0.0, 0.8)   # the subject standing still before the stairs
 TURN = ('39_11', 3.53, 5.43)   # walk forward, turn around, walk back: from the right-foot strike just before the turn
 TURN_START_PHASE = .5           # to the left-foot strike just after it (the ledges are short); starts half a stride in
 TURN_FPS = 30
+RUN = ('35_17', 0.2, 1.2)      # a jog (subject 35, the level-walk subject): one stride, looped like the walks
+JUMP = ('16_05', 0.55, 1.95)   # a two-footed forward jump: crouch, take-off, flight, landing, recovery
 N = 40                        # samples per stride
 # standard skeleton: our joint name -> CMU bone whose END is that joint (L = near side, seen walking to the right)
 JOINTS = {'pelvis': 'root', 'hipL': 'lhipjoint', 'kneeL': 'lfemur', 'ankleL': 'ltibia', 'ballL': 'lfoot', 'toeL': 'ltoes',
@@ -183,6 +185,33 @@ def smooth_swing(frames, sd, D):
         f[A] = na; f[B] = [round(na[0] + dB[0], 4), round(na[1] + dB[1], 4)]; f[T] = [round(na[0] + dT[0], 4), round(na[1] + dT[1], 4)]
     print('  smoothed', sd, 'swing over', L, 'frames, clearance', round(clear, 3), file=sys.stderr)
 
+def jump_clip(folder, trial, t0, t1):
+    # The jump, side-on along its direction. The clip's own rise is taken out (the physics decides how high a jump
+    # goes); what stays is the body: crouch, legs tucking up in flight, reaching down to land, absorbing the landing.
+    # Frame y is relative to the standing ground; 'lift' records the removed rise.
+    # Marks (seconds into the clip): takeoff (feet leave), apex, land (feet back down).
+    F = load(folder, trial); H = height(F); i0, i1 = int(round(t0 * 60)), int(round(t1 * 60))
+    a, b = F[i0]['pelvis'], F[i1]['pelvis']; R = [b[0] - a[0], 0, b[2] - a[2]]; nr = math.hypot(R[0], R[2]); R = [R[0] / nr, 0, R[2] / nr]
+    g0 = min(F[i0]['ankleL'][1], F[i0]['ankleR'][1]); base = F[i0]['pelvis'][1]
+    feet = [min(F[i]['ankleL'][1], F[i]['ankleR'][1]) - g0 for i in range(i0, i1 + 1)]
+    air = [k for k, v in enumerate(feet) if v > .35]
+    tk, ld = air[0], air[-1] + 1
+    out = {'frames': [], 'lift': [], 'fps': TURN_FPS}
+    n = int(round((t1 - t0) * TURN_FPS))
+    for k in range(n + 1):
+        t = i0 + (i1 - i0) * k / n; i = int(t); w = t - i; j = min(i + 1, len(F) - 1)
+        f = {q: [F[i][q][c] * (1 - w) + F[j][q][c] * w for c in range(3)] for q in JOINTS}
+        lift = max(0, f['pelvis'][1] - base)   # the body's rise above standing: removed (the physics sets the height),
+                                               # so the crouch stays and in flight the legs tuck up under the body
+        px = (f['pelvis'][0] - a[0]) * R[0] + (f['pelvis'][2] - a[2]) * R[2]
+        out['frames'].append([round(v, 4) for q in JOINTS for v in ((((f[q][0] - a[0]) * R[0] + (f[q][2] - a[2]) * R[2]) - px) / H, (f[q][1] - g0 - lift) / H)])
+        out['lift'].append(round(lift / H, 4))
+    out['dur'] = round(t1 - t0, 3); out['takeoff'] = round(tk / 60, 3); out['land'] = round(ld / 60, 3)
+    apex = max(range(tk, ld), key=lambda q: feet[q]); out['apex'] = round(apex / 60, 3)
+    for sd in 'LR': pass
+    print('jump', trial, 'dur', out['dur'], 'takeoff', out['takeoff'], 'apex', out['apex'], 'land', out['land'], file=sys.stderr)
+    return out
+
 def rests(c, ground):
     # each subject's own "flat foot" and toe angles (median over mid-stance), and the head's average angle
     F = c['frames']; n = len(F); r = {}
@@ -260,6 +289,10 @@ if __name__ == '__main__':
         c['rest'] = rests(c, c['ground']); data['clips'][name] = c
         print(name, trial, 'stride', c['D'], 'dur', c['dur'], 'slope deg', round(math.degrees(c['slope']), 1), file=sys.stderr)
     data['turn'] = turn_clip(folder, *TURN)
+    r = clip(folder, RUN[0], RUN[1], RUN[2]); r['label'] = 'jog, subject 35'; r['source'] = 'CMU mocap ' + RUN[0]; r['slope'] = 0; r['ground'] = 0; r['rest'] = rests(r, 0)
+    r['frames'] = [[v for j in JOINTS for v in fr[j]] for fr in r['frames']]; data['run'] = r
+    print('run', RUN[0], 'stride', r['D'], 'dur', r['dur'], file=sys.stderr)
+    data['jump'] = jump_clip(folder, *JUMP)
     # compact: frames as flat arrays in joint order
     for c in data['clips'].values(): c['frames'] = [[v for j in data['joints'] for v in fr[j]] for fr in c['frames']]
     data['stand'] = [v for j in data['joints'] for v in data['stand'][j]]

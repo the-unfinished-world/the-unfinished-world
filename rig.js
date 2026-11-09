@@ -24,7 +24,7 @@
   const STAND_ANG = { footL: 0, footR: 0, toeL: 0, toeR: 0, head: 0 };
   // centre each clip's arm swing on the shoulder: a capture subject who carries an arm forward (the level-walk subject
   // swings the near arm only in front of the body) makes every character look stiff, so most of that offset is removed
-  for (const c of clips) for (const sd of ['L', 'R']) {
+  for (const c of clips.concat(C.run ? [C.run] : [])) for (const sd of ['L', 'R']) {
     const si = 2 * IDX['shoulder' + sd], hi = 2 * IDX['hand' + sd]; let m = 0;
     for (const f of c.frames) m += f[hi] - f[si]; m = m / c.frames.length * .8;
     for (const f of c.frames) for (const [n, k] of [['elbow', .5], ['wrist', .85], ['hand', 1]]) f[2 * IDX[n + sd]] -= m * k;
@@ -40,12 +40,15 @@
     for (let i = 0; i < clips.length - 1; i++) { const a = clips[i], b = clips[i + 1]; if (slope < b.slope) { const t = (slope - a.slope) / (b.slope - a.slope); return [[a, 1 - t], [b, t]]; } }
     return [[clips[clips.length - 1], 1]];
   }
-  function stride(slope) { let d = 0; for (const [c, w] of weights(slope)) d += c.D[0] * w; return d; }
+  const RUN = C.run ? Object.assign({ name: 'run' }, C.run) : null;
+  function stride(slope, run) { let d = 0; for (const [c, w] of weights(slope)) d += c.D[0] * w; const r = RUN ? Math.max(0, Math.min(1, run || 0)) : 0; return d * (1 - r) + (r ? RUN.D[0] * r : 0); }
 
   function pose(o) {
     const slope = o.slope || 0, cyc = (o.phase || 0) / (2 * Math.PI), W = weights(slope), arr = new Array(2 * NJ).fill(0), D = [0, 0];
     const A = { footL: 0, footR: 0, toeL: 0, toeR: 0, head: 0 };
-    for (const [c, w] of W) { const s = sample(c, cyc); for (let k = 0; k < 2 * NJ; k++) arr[k] += s[k] * w; D[0] += c.D[0] * w; D[1] += c.D[1] * w;
+    // o.run (0..1) blends toward the jog; walks are weighted by slope within the rest
+    const rw = RUN ? Math.max(0, Math.min(1, o.run || 0)) : 0, Wr = rw > 0 ? W.map(([c, w]) => [c, w * (1 - rw)]).concat([[RUN, rw]]) : W;
+    for (const [c, w] of Wr) { const s = sample(c, cyc); for (let k = 0; k < 2 * NJ; k++) arr[k] += s[k] * w; D[0] += c.D[0] * w; D[1] += c.D[1] * w;
       const a = clipAngles(s, c.rest, c.ground); for (const k in A) A[k] += a[k] * w; }
     // fit the stride to the actual slope: shear so the planted foot travels along the deck, not the clip's own incline
     const k = Math.tan(slope) - D[1] / D[0], px = at(arr, 'pelvis')[0];
@@ -94,5 +97,33 @@
     for (const k in a.angles) ang[k] = L(a.angles[k], b.angles[k]);
     return Object.assign({}, b, { P: n => { const p = a.P(n), q = b.P(n); return [L(p[0], q[0]), L(p[1], q[1])]; }, angles: ang, fc: L(a.fc == null ? 1 : a.fc, b.fc == null ? 1 : b.fc), slope: L(a.slope || 0, b.slope || 0) });
   }
-  window.TUWRig = { pose, stride, clips, joints: J, turn, blend };
+  // ---- the jump (gait-clips.js 'jump'): crouch, take-off, flight, landing, recovery; its own rise is removed so the
+  // physics sets the height. jumpPose(tc) with tc in seconds; marks: takeoff, apex, land, dur.
+  const JC = C.jump;
+  let jumpPose = null;
+  if (JC) {
+    const f0 = JC.frames[0], g0 = n2 => at(f0, n2);
+    const jr = { footL: ang(g0('ankleL'), g0('ballL')), footR: ang(g0('ankleR'), g0('ballR')), toeL: wrap(ang(g0('ballL'), g0('toeL')) - ang(g0('ankleL'), g0('ballL'))), toeR: wrap(ang(g0('ballR'), g0('toeR')) - ang(g0('ankleR'), g0('ballR'))), head: ang(g0('skull'), g0('crown')) };
+    jumpPose = (tc, tuck) => {
+      const n = JC.frames.length, f = Math.max(0, Math.min(n - 1.001, tc * JC.fps)), i = Math.floor(f), w = f - i, A2 = JC.frames[i], B2 = JC.frames[i + 1];
+      const arr = new Array(2 * NJ); for (let k = 0; k < 2 * NJ; k++) arr[k] = A2[k] + (B2[k] - A2[k]) * w;
+      for (let j = 0; j < NJ; j++) arr[2 * j + 1] += ANKLE;
+      // a platformer jump wants a clear tuck: in flight lift the feet further (knees re-solved from the leg lengths)
+      const fl = (tc - JC.takeoff) / (JC.land - JC.takeoff), tk = (tuck || 0) * (fl > 0 && fl < 1 ? Math.sin(Math.PI * fl) : 0);
+      if (tk > 0) for (const sd of ['L', 'R']) {
+        const g = n2 => [arr[2 * IDX[n2 + sd]], arr[2 * IDX[n2 + sd] + 1]], hp = g('hip'), kn = g('knee'), an = g('ankle');
+        const l1 = Math.hypot(kn[0] - hp[0], kn[1] - hp[1]), l2 = Math.hypot(an[0] - kn[0], an[1] - kn[1]);
+        let tx = an[0] + .05 * tk, ty = an[1] + .2 * tk; const dx = tx - hp[0], dy = ty - hp[1], d = Math.min(Math.hypot(dx, dy), l1 + l2 - 1e-3), th = Math.atan2(dy, dx);
+        tx = hp[0] + Math.cos(th) * d; ty = hp[1] + Math.sin(th) * d;
+        const al = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + d * d - l2 * l2) / (2 * l1 * d)))), k1 = [hp[0] + l1 * Math.cos(th + al), hp[1] + l1 * Math.sin(th + al)], k2 = [hp[0] + l1 * Math.cos(th - al), hp[1] + l1 * Math.sin(th - al)], kk = k1[0] > k2[0] ? k1 : k2;
+        const ddx = tx - an[0], ddy = ty - an[1];
+        arr[2 * IDX['knee' + sd]] = kk[0]; arr[2 * IDX['knee' + sd] + 1] = kk[1];
+        for (const n2 of ['ankle', 'ball', 'toe']) { arr[2 * IDX[n2 + sd]] += ddx; arr[2 * IDX[n2 + sd] + 1] += ddy; }
+      }
+      const P = n2 => at(arr, n2), a = clipAngles(arr, jr, 0), torsoUp = ang(mid(P('hipL'), P('hipR')), P('neck'));
+      return { P, slope: 0, D: [0, 0], ankle: ANKLE, angles: { head: Math.PI / 2 + a.head + (torsoUp - Math.PI / 2) * .35, torsoUp, footL: a.footL, footR: a.footR, toeL: a.footL + a.toeL, toeR: a.footR + a.toeR } };
+    };
+  }
+  const jump = JC ? { pose: jumpPose, dur: JC.dur, takeoff: JC.takeoff, apex: JC.apex, land: JC.land } : null;
+  window.TUWRig = { pose, stride, clips, joints: J, turn, blend, jump, run: RUN };
 })();
