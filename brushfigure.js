@@ -35,7 +35,9 @@
     const e = Math.min(.7, h * .005); const offs = [[0, 0, 1], [Math.cos(t) * e, Math.sin(t * 1.3) * e * .8, .45]];
     for (const [dx, dy, a] of offs) { c.globalAlpha = a; c.drawImage(mer, dx * S, dy * S); }
     c.filter = 'none'; c.globalAlpha = 1;
-    if (!o.draw && window.drawWalker8Lines && o.variant) { c.globalCompositeOperation = 'source-over'; c.save(); c.setTransform(S, 0, 0, S, 0, 0); drawWalker8Lines(c, Object.assign({}, o, { x: ox, y: oy, lineColor: '#fff' })); c.restore(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'multiply'; }
+    // interior lines in paper colour over the ink: o.drawLines (e.g. fold lines of a body), else the procedural walker's
+    const lines = o.draw ? o.drawLines : (window.drawWalker8Lines && o.variant ? drawWalker8Lines : null);
+    if (lines) { c.globalCompositeOperation = 'source-over'; c.save(); c.setTransform(S, 0, 0, S, 0, 0); lines(c, Object.assign({}, o, { x: ox, y: oy, lineColor: '#fff' })); c.restore(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'multiply'; }
     // pooled ink low on the figure (feet and hem), lighter wash high (shoulders catch the light)
     c.globalCompositeOperation = 'screen';
     const g = c.createLinearGradient(0, (oy - h) * S, 0, oy * S); g.addColorStop(0, 'rgba(255,255,255,.07)'); g.addColorStop(.55, 'rgba(255,255,255,.03)'); g.addColorStop(1, 'rgba(255,255,255,0)');

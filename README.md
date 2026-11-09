@@ -24,6 +24,12 @@ The walker is built in three swappable layers, so one change reaches every chara
   lantern bearer, shepherd, oracle) and `TUWBodies.variants` (everyday walkers) are made with `TUWBodies.make(spec)`.
   Proportions are per body: height, build, head size, upper-body length against the legs, stoop.
 
+On each ledge the walker turns with a recorded 180-degree step-turn (CMU subject 39, `turn` in `gait-clips.js`):
+the steps are timed to meet it on a foot strike, the body narrows and its chest widens as it faces us, and the next
+person takes over with an ink dissolve at that moment. Some ledges hold the turn for a few seconds, three-quarters
+toward us, looking out over the gorge. A slow gusting wind (stronger on rope bridges) moves hems, cloaks, long hair
+and the lantern, and garments carry paper-coloured fold lines like the vase drawings.
+
 Visitors see a random character on each crossing; a signed-in member walks as the character chosen in their
 profile (`figure` in the members table, see `supabase/003_characters.sql`). `walker7.js`/`walker8.js` remain as
 the fallback procedural walker.

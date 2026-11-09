@@ -22,6 +22,13 @@
     return o;
   }
   const STAND_ANG = { footL: 0, footR: 0, toeL: 0, toeR: 0, head: 0 };
+  // centre each clip's arm swing on the shoulder: a capture subject who carries an arm forward (the level-walk subject
+  // swings the near arm only in front of the body) makes every character look stiff, so most of that offset is removed
+  for (const c of clips) for (const sd of ['L', 'R']) {
+    const si = 2 * IDX['shoulder' + sd], hi = 2 * IDX['hand' + sd]; let m = 0;
+    for (const f of c.frames) m += f[hi] - f[si]; m = m / c.frames.length * .8;
+    for (const f of c.frames) for (const [n, k] of [['elbow', .5], ['wrist', .85], ['hand', 1]]) f[2 * IDX[n + sd]] -= m * k;
+  }
 
   function sample(c, cyc) {
     const n = c.frames.length, f = (((cyc % 1) + 1) % 1) * n, i = Math.floor(f) % n, w = f - Math.floor(f), A = c.frames[i], B = c.frames[(i + 1) % n], out = new Array(2 * NJ);
@@ -57,5 +64,35 @@
     return { P, slope, D, ankle: ANKLE, angles: { head, torsoUp, footL: deck + A.footL, footR: deck + A.footR, toeL: deck + A.footL + A.toeL, toeR: deck + A.footR + A.toeR } };
   }
   const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-  window.TUWRig = { pose, stride, clips, joints: J };
+  // ---- the turn-around (gait-clips.js 'turn'): one recorded 180-degree step-turn with a stride either side ----
+  // turnPose(tc) -> a pose like pose() plus: fc (how much of the profile shows, 1 = side-on, 0 = facing the viewer),
+  // mirrored (past the half-way point the body faces back, so x is mirrored and drawing flips direction), and
+  // rootX (pelvis travel along the walk-in direction, in body heights). tc is seconds into the clip.
+  const TC = C.turn;
+  function turnPose(tc) {
+    const n = TC.frames.length, f = Math.max(0, Math.min(n - 1.001, tc * TC.fps)), i = Math.floor(f), w = f - i, A = TC.frames[i], B = TC.frames[i + 1];
+    const arr = new Array(2 * NJ); for (let k = 0; k < 2 * NJ; k++) arr[k] = A[k] + (B[k] - A[k]) * w;
+    const L = (a, b) => a + (b - a) * w, yaw = L(TC.yaw[i], TC.yaw[i + 1]), pa = TC.pitch[i], pb = TC.pitch[i + 1], pt = pa.map((v, k) => v + (pb[k] - v) * w), r = TC.rest;
+    const c = Math.cos(yaw), mirrored = c < 0;
+    for (let j = 0; j < NJ; j++) { if (mirrored) arr[2 * j] = -arr[2 * j]; arr[2 * j + 1] += ANKLE; }
+    // the recorded counter-swing of the arms through the pivot is wide; facing the viewer it reads as flailing, so the
+    // arms are drawn in toward their shoulders the more the body faces out (side-on they are left as recorded)
+    const pull = .2 + .8 * Math.abs(c);
+    for (const sd of ['L', 'R']) { const sx0 = arr[2 * IDX['shoulder' + sd]]; for (const n2 of ['elbow', 'wrist', 'hand']) { const k = 2 * IDX[n2 + sd]; arr[k] = sx0 + (arr[k] - sx0) * pull; } }
+    const P = n2 => at(arr, n2), torsoUp = pt[4], fL = pt[0] - r[0], fR = pt[1] - r[1];
+    return { P, slope: 0, D: [0, 0], ankle: ANKLE, fc: Math.max(.12, Math.abs(c)), mirrored, yaw, rootX: L(TC.root[i], TC.root[i + 1]),
+      angles: { torsoUp, head: Math.PI / 2 + (pt[5] - r[5]) + (torsoUp - Math.PI / 2) * .35, footL: fL, footR: fR, toeL: pt[2] - r[2], toeR: pt[3] - r[3] } };
+  }
+  // the hold moment: near facing the viewer with both feet down (where a pause to look out over the gorge freezes)
+  let hold = TC ? TC.apex : 0;
+  if (TC) { let best = 1e9; for (let t = Math.max(.15, TC.apex - .45); t <= TC.apex + .25; t += 1 / 60) { const p = turnPose(t), lift = Math.max(p.P('ankleL')[1], p.P('ankleR')[1]) + .02 * Math.abs(Math.abs(p.yaw) - Math.PI / 2); if (lift < best) { best = lift; hold = t; } } }
+  const turn = TC ? { pose: turnPose, dur: TC.dur, apex: TC.apex, hold, startPhase: TC.startPhase || 0, rootAt: tc => { const f = Math.max(0, Math.min(TC.root.length - 1.001, tc * TC.fps)), i = Math.floor(f); return TC.root[i] + (TC.root[i + 1] - TC.root[i]) * (f - i); } } : null;
+  // blend two poses (crossfades into and out of the turn); w = 0 gives a, 1 gives b
+  function blend(a, b, w) {
+    if (w <= 0) return a; if (w >= 1) return b;
+    const L = (x, y) => x + (y - x) * w, ang = {};
+    for (const k in a.angles) ang[k] = L(a.angles[k], b.angles[k]);
+    return Object.assign({}, b, { P: n => { const p = a.P(n), q = b.P(n); return [L(p[0], q[0]), L(p[1], q[1])]; }, angles: ang, fc: L(a.fc == null ? 1 : a.fc, b.fc == null ? 1 : b.fc), slope: L(a.slope || 0, b.slope || 0) });
+  }
+  window.TUWRig = { pose, stride, clips, joints: J, turn, blend };
 })();

@@ -18,6 +18,9 @@ CLIPS = {   # name: (cmu trial, seconds window that contains two left strikes, l
     'stairs': ('83_34', 3.9, 7.0, 'stair climb, subject 83 (about 23 degrees)'),
 }
 STAND = ('83_34', 0.0, 0.8)   # the subject standing still before the stairs
+TURN = ('39_11', 3.53, 5.43)   # walk forward, turn around, walk back: from the right-foot strike just before the turn
+TURN_START_PHASE = .5           # to the left-foot strike just after it (the ledges are short); starts half a stride in
+TURN_FPS = 30
 N = 40                        # samples per stride
 # standard skeleton: our joint name -> CMU bone whose END is that joint (L = near side, seen walking to the right)
 JOINTS = {'pelvis': 'root', 'hipL': 'lhipjoint', 'kneeL': 'lfemur', 'ankleL': 'ltibia', 'ballL': 'lfoot', 'toeL': 'ltoes',
@@ -202,6 +205,47 @@ def stand(folder, trial, lo, hi):
     m = i1 - i0; px = acc['pelvis'][0] / m
     return {k: [round(v[0] / m - px, 4), round(v[1] / m, 4)] for k, v in acc.items()}
 
+def turn_clip(folder, trial, t0, t1):
+    # The turn-around, seen from the side. Unlike the strides, the body turns, so for each frame we keep: joint
+    # positions projected on the picture plane (x along the walk-in direction, y up, units of body height, x relative
+    # to the pelvis), the pelvis track (root), the facing (yaw: 0 = walking in, pi = walking back), and the pitch of
+    # the feet, toes, torso and head measured in 3D (so they stay right when the body faces the viewer).
+    F = load(folder, trial); H = height(F); i0, i1 = int(round(t0 * 60)), int(round(t1 * 60))
+    a, b = F[max(0, i0 - 60)]['pelvis'], F[i0]['pelvis']; R = [b[0] - a[0], 0, b[2] - a[2]]; nr = math.hypot(R[0], R[2]); R = [R[0] / nr, 0, R[2] / nr]
+    g0 = min(F[i0]['ankleL'][1], F[i0]['ankleR'][1])
+    hor = lambda v: math.hypot(v[0], v[2])
+    def facing(f):   # unit horizontal vector the body faces: perpendicular to the hip line, pointing the way it walks
+        l, r = f['hipL'], f['hipR']; d = [l[0] - r[0], l[2] - r[2]]; fx, fz = -d[1], d[0]; n = math.hypot(fx, fz) or 1; return [fx / n, 0, fz / n]
+    f0 = facing(F[i0]); sgn = 1 if f0[0] * R[0] + f0[2] * R[2] > 0 else -1
+    def pitch_along(v, fv):   # angle of v above the horizontal, signed by whether it points along the facing
+        fwd = v[0] * fv[0] + v[2] * fv[2]; return math.atan2(v[1], fwd)
+    out = {'frames': [], 'root': [], 'yaw': [], 'pitch': []}; prev = None
+    n = int(round((t1 - t0) * TURN_FPS))
+    for k in range(n + 1):
+        t = i0 + (i1 - i0) * k / n; i = int(t); w = t - i; j = min(i + 1, len(F) - 1)
+        f = {q: [F[i][q][c] * (1 - w) + F[j][q][c] * w for c in range(3)] for q in JOINTS}
+        fv = facing(f); fv = [fv[0] * sgn, 0, fv[2] * sgn]
+        yaw = math.atan2(fv[2] * R[0] - fv[0] * R[2], fv[0] * R[0] + fv[2] * R[2])
+        if prev is not None: yaw = prev + wrap(yaw - prev)
+        prev = yaw
+        px = (f['pelvis'][0] - b[0]) * R[0] + (f['pelvis'][2] - b[2]) * R[2]
+        out['root'].append(round(px / H, 4)); out['yaw'].append(round(yaw, 4))
+        out['frames'].append([round(v, 4) for q in JOINTS for v in ((((f[q][0] - b[0]) * R[0] + (f[q][2] - b[2]) * R[2]) - px) / H, (f[q][1] - g0) / H)])
+        sub3 = lambda p, q: [p[0] - q[0], p[1] - q[1], p[2] - q[2]]
+        hipm = [(f['hipL'][c] + f['hipR'][c]) / 2 for c in range(3)]
+        out['pitch'].append([round(v, 4) for v in (
+            pitch_along(sub3(f['ballL'], f['ankleL']), fv), pitch_along(sub3(f['ballR'], f['ankleR']), fv),
+            pitch_along(sub3(f['toeL'], f['ballL']), fv), pitch_along(sub3(f['toeR'], f['ballR']), fv),
+            math.atan2(sub3(f['neck'], hipm)[1], (sub3(f['neck'], hipm)[0] * fv[0] + sub3(f['neck'], hipm)[2] * fv[2])),
+            math.atan2(sub3(f['crown'], f['skull'])[1], (sub3(f['crown'], f['skull'])[0] * fv[0] + sub3(f['crown'], f['skull'])[2] * fv[2])))])
+    # rests: feet and toes flat at mid-stance of the walking part, torso and head at their walking average
+    P = out['pitch']; m = len(P)
+    out['rest'] = [round(med([p[c] for p in P[:m // 6]]), 4) for c in range(6)]
+    out['dur'] = round(t1 - t0, 3); out['fps'] = TURN_FPS; out['startPhase'] = TURN_START_PHASE
+    yaws = out['yaw']; out['apex'] = round(min(range(m), key=lambda q: abs(abs(yaws[q]) - math.pi / 2)) / TURN_FPS, 3)   # facing the viewer
+    print('turn', trial, 'dur', out['dur'], 'apex', out['apex'], 'yaw end deg', round(math.degrees(yaws[-1]), 1), 'root', min(out['root']), max(out['root']), out['root'][-1], file=sys.stderr)
+    return out
+
 if __name__ == '__main__':
     folder, out = sys.argv[1], sys.argv[2]
     st = stand(folder, *STAND)
@@ -215,6 +259,7 @@ if __name__ == '__main__':
         c['ground'] = 0 if name in ('level', 'stairs') else c['slope']    # what the planted foot lies flat on (stair treads are level)
         c['rest'] = rests(c, c['ground']); data['clips'][name] = c
         print(name, trial, 'stride', c['D'], 'dur', c['dur'], 'slope deg', round(math.degrees(c['slope']), 1), file=sys.stderr)
+    data['turn'] = turn_clip(folder, *TURN)
     # compact: frames as flat arrays in joint order
     for c in data['clips'].values(): c['frames'] = [[v for j in data['joints'] for v in fr[j]] for fr in c['frames']]
     data['stand'] = [v for j in data['joints'] for v in data['stand'][j]]
