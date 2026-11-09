@@ -130,6 +130,7 @@
   const AC = C.actions || {};
   function action(name, tc) {
     const c = AC[name]; if (!c) return null;
+    if (c.reverse) tc = c.dur - tc;   // (the tool test below uses the recording's own time, so a placed plank is in hand until it touches down)
     const n = c.frames.length, f0 = tc * c.fps, f = c.loop ? ((f0 % n) + n) % n : Math.max(0, Math.min(n - 1.001, f0)), i = Math.floor(f), w = f - i;
     const A2 = c.frames[i], B2 = c.frames[c.loop ? (i + 1) % n : Math.min(n - 1, i + 1)], arr = new Array(2 * NJ);
     for (let k = 0; k < 2 * NJ; k++) arr[k] = A2[k] + (B2[k] - A2[k]) * w;
@@ -139,6 +140,8 @@
   }
   // a carried plank only appears once it has been picked up (the moment the hands are lowest)
   for (const k in AC) { const c = AC[k]; if (c.tool !== 'plank') continue; let lo = 1e9; c.pickup = 0; c.frames.forEach((f, i) => { const y = f[2 * IDX.handL + 1] + f[2 * IDX.handR + 1]; if (y < lo) { lo = y; c.pickup = i / c.fps; } }); }
-  const actions = {}; for (const k in AC) actions[k] = { dur: AC[k].dur, loop: AC[k].loop, tool: AC[k].tool, pickup: AC[k].pickup };
+  // placing is lifting played backwards: stand holding it, bend, set it down, straighten with empty hands
+  if (AC.lift) AC.place = Object.assign({}, AC.lift, { reverse: true });
+  const actions = {}; for (const k in AC) actions[k] = { dur: AC[k].dur, loop: AC[k].loop, tool: AC[k].tool, pickup: AC[k].pickup, reverse: !!AC[k].reverse };
   window.TUWRig = { pose, stride, clips, joints: J, turn, blend, jump, run: RUN, action, actions };
 })();

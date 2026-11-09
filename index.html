@@ -486,6 +486,16 @@ function drawDown(d, wh) {   // a staff, spear, shield, lantern... lying beside 
   }
   ctx.restore();
 }
+function drawHeld(items, hand, face, wh) {   // a staff, spear, shield... carried in the hand while setting down / picking up
+  ctx.save(); ctx.strokeStyle = ctx.fillStyle = INK; ctx.lineCap = 'round'; const [x, y] = hand;
+  for (const it of items) {
+    if (/staff|crook|spear|javelin/.test(it)) { ctx.lineWidth = wh * .018; ctx.beginPath(); ctx.moveTo(x - face * wh * .1, y - wh * .35); ctx.lineTo(x + face * wh * .12, y + wh * .45); ctx.stroke(); }
+    else if (it === 'shield') { ctx.beginPath(); ctx.ellipse(x, y, wh * .06, wh * .19, face * .2, 0, Math.PI * 2); ctx.fill(); }
+    else if (it === 'lantern') { ctx.fillRect(x - wh * .025, y, wh * .05, wh * .09); }
+    else { ctx.beginPath(); ctx.ellipse(x, y, wh * .05, wh * .02, 0, 0, Math.PI * 2); ctx.fill(); }
+  }
+  ctx.restore();
+}
 function drawLine(L) {   // the grapnel line: flying out on its arc, falling short, then lying across the gorge
   if (!L) return; const [ax, ay] = L.from, [bx, by] = L.to;
   ctx.save(); ctx.strokeStyle = INK; ctx.lineWidth = 1.2; ctx.globalAlpha = .8; ctx.beginPath(); ctx.moveTo(ax, ay);
@@ -516,12 +526,11 @@ function drawPlayer(T) {
     if (b.phase === 'work') pose = b.walking ? Object.assign({}, TUWRig.pose({ slope: b.wslope || 0, phase: b.wphase || 0 }), { tool: 'empty' })   // stepping up to the new edge
       : (TUWBuild.pose(bridge(b.k), b.local || 0) || TUWRig.pose({ idle: 1 }));
     else {
-      const u = Math.min(1, b.t / PUT), low = A.lift.pickup / A.lift.dur;   // things reach (or leave) the ground at the lowest point
-      if (b.phase === 'put' && u >= low && !P.down) P.down = { x: c.x + P.face * P.wh * .32, y: c.y, face: P.face, items: holds(P.body) };
-      if (b.phase === 'take' && u >= low) P.down = null;
-      // hands are free (held things hidden) until they are picked up again on the way back up
-      pose = Object.assign({}, TUWRig.action('lift', u * A.lift.dur), { tool: b.phase === 'take' && u >= low ? null : 'empty' });
-      if (b.phase === 'take' && u >= low) pose = TUWRig.blend(pose, TUWRig.pose({ idle: 1 }), smooth01((u - low) / (1 - low)));
+      // setting down: the placing motion (lifting backwards), the things in hand until they touch the ground;
+      // picking up: the lifting motion, the things in hand from the moment they leave the ground
+      const u = Math.min(1, b.t / PUT), lowPut = 1 - A.lift.pickup / A.lift.dur, lowTake = A.lift.pickup / A.lift.dur;
+      if (b.phase === 'put') { pose = Object.assign({}, TUWRig.action('place', u * A.lift.dur), { tool: 'empty' }); if (u >= lowPut && !P.down) P.down = { x: c.x + P.face * P.wh * .32, y: c.y, face: P.face, items: holds(P.body) }; b.inHand = !P.down; }
+      else { pose = Object.assign({}, TUWRig.action('lift', u * A.lift.dur), { tool: 'empty' }); if (u >= lowTake) P.down = null; b.inHand = !P.down; }
     }
   } else if (c.grounded) {
     const sp = Math.abs(c.vx) / P.wh, run = smooth01((sp - .9) / .9), idle = 1 - smooth01(sp / .35);
@@ -539,6 +548,7 @@ function drawPlayer(T) {
   const wind = Math.max(-1.5, Math.min(1.5, (window.Weather ? Weather.wind(T).x * .7 : -.45)));
   // things set down beside the builder, the grapnel line, and the hint at a building spot
   if (P.down) drawDown(P.down, P.wh);
+  if (P.build && P.build.inHand && P.build.phase !== 'work') { const hd = pose.P('handL'); drawHeld(holds(P.body), [c.x + hd[0] * P.wh * P.face, c.y - hd[1] * P.wh], P.face, P.wh); }
   if (P.build && P.build.phase === 'work') { const Bk = bridge(P.build.k), hd = pose.P('handL'), hand = [c.x + hd[0] * P.wh * P.face, c.y - hd[1] * P.wh];
     const far = Bk.slots.filter(s => s._end === 'far' && s.kind === 'anchor').sort((a, b) => Math.abs(a.x - Bk.P2.x) - Math.abs(b.x - Bk.P2.x))[0], tgt = far ? [far.x, far.y] : [Bk.P2.x, Bk.P2.y];
     drawLine(TUWBuild.line(Bk, P.build.local || 0, hand, tgt)); }

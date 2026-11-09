@@ -18,9 +18,9 @@
   // reveal(sl, Bk) picks the pieces a step builds; they appear in near-to-far order through the step. Pieces no step
   // claims go up with the last step. act: an action name, or a list played in turn; reps: one-shots repeated.
   const near = sl => sl._end === 'near', far = sl => sl._end === 'far';
-  // laying the deck, in cycles: lift a plank (sped up), hammer it in. Each cycle lays perCycle units of deck during the
+  // laying the deck, in cycles: set a plank down on the edge (sped up), hammer it in. Each cycle lays perCycle units of deck during the
   // hammering; between cycles the builder steps up to the new edge (build, build, build, step up)
-  const DECK = [{ n: 'lift', speed: 2.6 }, { n: 'hammer', speed: 1.25 }];
+  const DECK = [{ n: 'place', speed: 2.6 }, { n: 'hammer', speed: 1.25 }];   // set a plank down on the edge, nail it
   const SCRIPTS = {
     rope: [
       { id: 'coil', act: 'coil', dur: 4, at: 'spot', grow: true },
